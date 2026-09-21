@@ -51,9 +51,7 @@ jobs:
         run: npm test
 
   smoke:
-    # TEMPORARY probe: booleans embedded in the job display name so secret
-    # visibility can be verified via the API. Revert once configured.
-    name: "PROBE url=${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }} anon=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' }} svc=${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }} fc=${{ secrets.FC_SEC != '' }} var=${{ vars.NEXT_PUBLIC_SUPABASE_URL != '' }}"
+    name: Smoke test (end-to-end)
     needs: checks
     runs-on: ubuntu-latest
     # Runs only on pushes to main. The `secrets` context is not available in
@@ -69,6 +67,16 @@ jobs:
       DIAG_FC_SEC: ${{ secrets.FC_SEC != '' }}
       DIAG_VAR_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL != '' }}
     steps:
+      # TEMPORARY diagnostics — presence booleans only, never values.
+      # First step so it completes in seconds and is easy to find.
+      - name: Diagnose secret visibility (booleans only)
+        run: |
+          echo "secrets.NEXT_PUBLIC_SUPABASE_URL visible:      $DIAG_URL"
+          echo "secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY visible:  $DIAG_ANON"
+          echo "secrets.SUPABASE_SERVICE_ROLE_KEY visible:      $DIAG_SVC"
+          echo "secrets.FC_SEC visible:                         $DIAG_FC_SEC"
+          echo "vars.NEXT_PUBLIC_SUPABASE_URL (Variables tab):  $DIAG_VAR_URL"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -78,14 +86,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Diagnose secret visibility (booleans only)
-        run: |
-          echo "secrets.NEXT_PUBLIC_SUPABASE_URL visible:      $DIAG_URL"
-          echo "secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY visible:  $DIAG_ANON"
-          echo "secrets.SUPABASE_SERVICE_ROLE_KEY visible:      $DIAG_SVC"
-          echo "secrets.FC_SEC visible:                         $DIAG_FC_SEC"
-          echo "vars.NEXT_PUBLIC_SUPABASE_URL (Variables tab):  $DIAG_VAR_URL"
 
       - name: Start dev server
         if: ${{ env.HAVE_SUPABASE_SECRETS == 'true' }}
