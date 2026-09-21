@@ -54,9 +54,12 @@ jobs:
     name: Smoke test (end-to-end)
     needs: checks
     runs-on: ubuntu-latest
-    # Runs only on pushes to main. The secret check happens at step level —
-    # the `secrets` context is not available in job-level `if` expressions.
+    # Runs only on pushes to main. The `secrets` context is not available in
+    # step/job `if` conditions at all, so availability is detected via a
+    # job-level env var instead (env may reference secrets).
     if: ${{ github.event_name == 'push' }}
+    env:
+      HAVE_SUPABASE_SECRETS: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -69,14 +72,14 @@ jobs:
         run: npm ci
 
       - name: Start dev server
-        if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }}
+        if: ${{ env.HAVE_SUPABASE_SECRETS == 'true' }}
         run: |
           # The smoke test waits for /api/health itself; give it a head start.
           npm run dev &
           sleep 5
 
       - name: Run smoke test
-        if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }}
+        if: ${{ env.HAVE_SUPABASE_SECRETS == 'true' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -86,5 +89,5 @@ jobs:
         run: npm run smoke
 
       - name: Report skipped smoke run
-        if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL == '' }}
+        if: ${{ env.HAVE_SUPABASE_SECRETS != 'true' }}
         run: echo "Supabase secrets not configured — smoke test skipped (unit checks still ran)."
