@@ -60,6 +60,12 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     env:
       HAVE_SUPABASE_SECRETS: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }}
+      # Temporary diagnostics — presence booleans only, never values.
+      DIAG_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }}
+      DIAG_ANON: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' }}
+      DIAG_SVC: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+      DIAG_FC_SEC: ${{ secrets.FC_SEC != '' }}
+      DIAG_VAR_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,6 +76,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Diagnose secret visibility (booleans only)
+        run: |
+          echo "secrets.NEXT_PUBLIC_SUPABASE_URL visible:      $DIAG_URL"
+          echo "secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY visible:  $DIAG_ANON"
+          echo "secrets.SUPABASE_SERVICE_ROLE_KEY visible:      $DIAG_SVC"
+          echo "secrets.FC_SEC visible:                         $DIAG_FC_SEC"
+          echo "vars.NEXT_PUBLIC_SUPABASE_URL (Variables tab):  $DIAG_VAR_URL"
 
       - name: Start dev server
         if: ${{ env.HAVE_SUPABASE_SECRETS == 'true' }}
