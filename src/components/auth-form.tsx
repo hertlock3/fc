@@ -70,15 +70,22 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
         // Partners land in their dashboards unless a specific page was asked
         // for: riders → /courier, stockists → /stockist, staff → /admin.
+        // PENDING partners are routed to the hold screen instead — the
+        // middleware would bounce them there anyway.
         let destination = next;
         if (!params.get("next")) {
           const { data: roleRow } = await supabase
             .from("profiles")
-            .select("role")
+            .select("role, approval_status")
             .eq("id", (await supabase.auth.getUser()).data.user?.id ?? "")
             .maybeSingle();
           const role = (roleRow as { role?: string } | null)?.role;
-          if (role === "courier") destination = "/courier";
+          const approval = (roleRow as { approval_status?: string } | null)
+            ?.approval_status;
+          const partnerPending =
+            (role === "courier" || role === "stockist") && approval !== "approved";
+          if (partnerPending) destination = "/pending-approval";
+          else if (role === "courier") destination = "/courier";
           else if (role === "stockist") destination = "/stockist";
           else if (role === "admin" || role === "vendor") destination = "/admin";
         }

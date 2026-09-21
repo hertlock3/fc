@@ -10,9 +10,12 @@ import { normalizeKenyanPhone } from "@/lib/utils";
  *
  * Runs on the server so role assignment is authoritative:
  *   - customers keep the client-side supabase.auth.signUp() flow;
- *   - riders register here and are immediately operational;
- *   - stockists register here too, but their location row starts INACTIVE —
- *     an admin verifies it in /admin/stockists before it takes orders.
+ *   - riders and stockists register here with approval_status = 'pending':
+ *     the account exists, but the admin must approve it (in /admin/team)
+ *     before the partner can use the platform. Until then every page/API
+ *     redirects to /pending-approval.
+ *   - stockists additionally get a location row that starts INACTIVE — an
+ *     admin verifies it in /admin/stockists before it takes orders.
  *
  * Rate limiting: a light in-memory guard keeps one endpoint from being
  * hammered into creating accounts.
@@ -70,11 +73,14 @@ export async function POST(request: Request) {
 
   try {
     // Profile row (handle_new_user trigger also fires; upsert for safety).
+    // approval_status is set here — server-side only — never from client
+    // metadata, so nobody can sign up pre-approved.
     const { error: profileError } = await admin.from("profiles").upsert({
       id: userId,
       full_name: fullName,
       phone: normalizedPhone,
       role,
+      approval_status: "pending",
     });
     if (profileError) throw new Error(profileError.message);
 
@@ -101,7 +107,7 @@ export async function POST(request: Request) {
       if (stockistError) throw new Error(stockistError.message);
     }
 
-    return json({ ok: true, role }, { status: 201 });
+    return json({ ok: true, role, status: "pending" }, { status: 201 });
   } catch (err) {
     // Roll back the auth user if the profile/location rows failed, so a
     // half-created partner account never lingers.

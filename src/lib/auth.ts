@@ -1,9 +1,50 @@
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/config";
-import type { Profile, Stockist, UserRole } from "@/lib/types";
+import type { ApprovalStatus, Profile, Stockist, UserRole } from "@/lib/types";
+
+/**
+ * Read the signed-in user's role + approval status in ONE query. Cached per
+ * render pass via React cache so pages that call several guards don't
+ * multiply queries.
+ */
+export const getAccessProfile = cache(async (): Promise<{
+  role: UserRole | null;
+  approvalStatus: ApprovalStatus | null;
+} | null> => {
+  const user = await getSessionUser();
+  if (!user) return null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("role, approval_status")
+      .eq("id", user.id)
+      .maybeSingle();
+    const row = data as { role: UserRole; approval_status: ApprovalStatus } | null;
+    if (!row) return null;
+    return { role: row.role, approvalStatus: row.approval_status };
+  } catch {
+    return null;
+  }
+});
+
+/**
+ * True when the signed-in account may use the platform: admins/vendors and
+ * customers are always allowed; riders & stockists must be APPROVED by an
+ * admin first (approval_status = 'approved').
+ */
+export async function isPlatformApproved(): Promise<boolean> {
+  const access = await getAccessProfile();
+  if (!access) return false;
+  if (access.role === "admin" || access.role === "vendor" || access.role === "customer") {
+    return true;
+  }
+  return access.approvalStatus === "approved";
+}
 
 /** Fetch the signed-in Supabase auth user, or null. Never throws. */
 export async function getSessionUser(): Promise<User | null> {
@@ -57,6 +98,11 @@ export async function requireUser(nextPath?: string): Promise<User> {
   const user = await getSessionUser();
   if (!user) {
     redirect(`/login${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`);
+  }
+  // Partner approval gate: pending riders/stockists are locked out of every
+  // page except /pending-approval until an admin approves them.
+  if (!(await isPlatformApproved())) {
+    redirect("/pending-approval");
   }
   return user;
 }

@@ -639,8 +639,9 @@ try {
     `Stockist registration failed: ${stockistReg.status} ${JSON.stringify(stockistReg.data)}`
   );
 
-  const stkProfile = (await rest("profiles", `full_name=eq.${encodeURIComponent(STOCKIST.fullName)}&select=id,role,phone`))?.[0];
+  const stkProfile = (await rest("profiles", `full_name=eq.${encodeURIComponent(STOCKIST.fullName)}&select=id,role,phone,approval_status`))?.[0];
   assert(stkProfile?.role === "stockist", "Stockist profile created with the stockist role", `Profile wrong: ${JSON.stringify(stkProfile)}`);
+  assert(stkProfile?.approval_status === "pending", "New partner account is PENDING admin approval", `approval_status = ${stkProfile?.approval_status}`);
   created.stockistUserId = stkProfile?.id ?? null;
 
   const stkRow = (await rest("stockists", `profile_id=eq.${created.stockistUserId}&select=id,name,is_active,is_principal,phone`))?.[0];
@@ -650,7 +651,8 @@ try {
   assert(stkRow?.is_principal === false, "Stockist location is not principal", "is_principal should be false");
   assert(/^254(7|1)\d{8}$/.test(stkRow?.phone ?? ""), `Phone normalised to 254… format (${stkRow?.phone})`, `Phone not normalised: ${stkRow?.phone}`);
 
-  // Partner signs in and opens their dashboard while still pending.
+  // Partner signs in. While PENDING, every platform page must bounce to the
+  // hold screen and APIs must refuse them.
   const stkGrant = await authApi("/auth/v1/token?grant_type=password", {
     method: "POST",
     body: { email: STOCKIST.email, password: STOCKIST.password },
@@ -661,11 +663,77 @@ try {
   const stkCookie = stkGrant?.data?.access_token ? cookieHeaderValue(stkGrant.data) : undefined;
   if (stkCookie) {
     const dashPending = await fetch(`${BASE_URL}/stockist`, { headers: { Cookie: stkCookie }, redirect: "manual" });
-    const dashPendingHtml = await dashPending.text();
     assert(
-      dashPending.status === 200 && dashPendingHtml.includes("Pending verification"),
-      "Stockist dashboard shows the pending-verification banner before approval",
-      `Pending dashboard wrong (${dashPending.status}): ${dashPendingHtml.includes("Active — taking orders") ? "shows active" : "banner missing"}`
+      dashPending.status >= 300 && dashPending.status < 400 && (dashPending.headers.get("location") ?? "").startsWith("/pending-approval"),
+      "Pending partner is redirected from /stockist to /pending-approval",
+      `Expected redirect to /pending-approval, got ${dashPending.status} ${dashPending.headers.get("location")}`
+    );
+
+    const holdPage = await fetch(`${BASE_URL}/pending-approval`, { headers: { Cookie: stkCookie }, redirect: "manual" });
+    const holdHtml = await holdPage.text();
+    assert(
+      holdPage.status === 200 && holdHtml.includes("pending approval"),
+      "Hold screen renders the pending-authentication notice",
+      `Hold screen wrong (${holdPage.status})`
+    );
+
+    const blockedApi = await api("/api/cart", { cookie: stkCookie });
+    assert(
+      blockedApi.status === 403 && blockedApi.data?.code === "pending_approval",
+      "Pending partner is blocked from platform APIs (403 pending_approval)",
+      `Expected 403 pending_approval, got ${blockedApi.status} ${JSON.stringify(blockedApi.data)}`
+    );
+  }
+
+  // Admin APPROVES the partner account (the platform-access gate).
+  const stkApprove = await api("/api/admin/partners", {
+    method: "PATCH", cookie: adminCookie,
+    body: { profileId: created.stockistUserId, action: "approve" },
+  });
+  assert(stkApprove.status === 200 && stkApprove.data?.partner?.approval_status === "approved", "Admin approved the partner account", `Approval failed: ${stkApprove.status} ${JSON.stringify(stkApprove.data)}`);
+
+  // A non-admin cannot approve (the stockist trying to approve themselves).
+  if (stkCookie) {
+    const selfApprove = await api("/api/admin/partners", {
+      method: "PATCH", cookie: stkCookie,
+      body: { profileId: created.stockistUserId, action: "approve" },
+    });
+    assert(selfApprove.status === 403 || selfApprove.status === 401, "Partner cannot approve themselves (403)", `Expected 403, got ${selfApprove.status}`);
+  }
+
+  // Admin verifies: correct the pin, activate the location.
+  const stkVerify = await api("/api/admin/stockists", {
+    method: "PATCH", cookie: adminCookie,
+    body: { id: stkRow.id, isActive: true, lat: -1.2438, lng: 36.9085 },
+  });
+  assert(stkVerify.status === 200, "Admin verified + activated the stockist location", `Verification failed: ${stkVerify.status} ${JSON.stringify(stkVerify.data)}`);
+  const stkActive = (await rest("stockists", `id=eq.${stkRow.id}&select=is_active,lat,lng`))?.[0];
+  assert(stkActive?.is_active === true && Math.abs(stkActive.lat - -1.2438) < 0.0001, "Location active with corrected coordinates", `Activation state wrong: ${JSON.stringify(stkActive)}`);
+
+  // Guard rails: partners cannot self-approve; anonymous writes are rejected.
+  // NOTE: with the stockist's JWT the route returns 401 (Supabase rejects the
+  // misconfigured session before the role check), so assert on the union.
+  const stkSelfToggle = await api("/api/admin/stockists", {
+    method: "PATCH", cookie: stkCookie,
+    body: { id: stkRow.id, isActive: false },
+  });
+  assert(
+    stkSelfToggle.status === 403 || stkSelfToggle.status === 401,
+    "Stockist cannot toggle their own location (403)",
+    `Expected 403, got ${stkSelfToggle.status}`
+  );
+  const stkAnon = await api("/api/admin/stockists", { method: "PATCH", body: { id: stkRow.id, isActive: true } });
+  assert(stkAnon.status === 401, "Unauthenticated stockist API write → 401", `Expected 401, got ${stkAnon.status}`);
+
+  // After approval (but before location activation) the dashboard renders
+  // with the pending-verification banner.
+  if (stkCookie) {
+    const dashApproved = await fetch(`${BASE_URL}/stockist`, { headers: { Cookie: stkCookie }, redirect: "manual" });
+    const dashApprovedHtml = await dashApproved.text();
+    assert(
+      dashApproved.status === 200 && dashApprovedHtml.includes("Pending verification"),
+      "Approved partner reaches the dashboard (location still pending verification)",
+      `Approved dashboard wrong (${dashApproved.status})`
     );
   }
 

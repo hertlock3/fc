@@ -2,6 +2,13 @@
 
 export type UserRole = "customer" | "admin" | "vendor" | "courier" | "stockist";
 
+/**
+ * Partner approval gate: riders & stockists register into 'pending' and gain
+ * full platform access only after an admin approves them. Customers, admins
+ * and vendors are approved from birth.
+ */
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
 export type OrderStatus =
   | "pending_payment"
   | "paid"
@@ -73,6 +80,7 @@ export interface Profile {
   full_name: string | null;
   phone: string | null;
   role: UserRole;
+  approval_status: ApprovalStatus;
   created_at: string;
   updated_at: string;
 }

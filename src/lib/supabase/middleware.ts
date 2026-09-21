@@ -3,10 +3,24 @@ import { NextResponse, type NextRequest } from "next/server";
 import { config } from "@/lib/config";
 
 /** Routes that require an authenticated session. */
-const PROTECTED_PREFIXES = ["/shop", "/cart", "/checkout", "/orders", "/account", "/onboarding", "/admin"];
+const PROTECTED_PREFIXES = [
+  "/shop",
+  "/cart",
+  "/checkout",
+  "/orders",
+  "/account",
+  "/onboarding",
+  "/admin",
+  "/courier",
+  "/stockist",
+  "/pending-approval",
+];
 
 /** Auth routes that a signed-in user should be redirected away from. */
 const AUTH_ROUTES = ["/login", "/register"];
+
+/** The holding screen pending partners are locked to (plus auth pages). */
+const PENDING_ALLOWED_PREFIXES = ["/pending-approval"];
 
 /**
  * Refreshes the Supabase auth session on every request and enforces
@@ -62,6 +76,37 @@ export async function updateSession(request: NextRequest) {
     url.pathname = "/shop";
     url.search = "";
     return NextResponse.redirect(url);
+  }
+
+  // -----------------------------------------------------------------------
+  // Partner approval gate: pending riders & stockists may only reach the
+  // hold screen (and sign out). Auth pages are exempt so "Check again" /
+  // re-login flows still work; API routes do their own checks.
+  // -----------------------------------------------------------------------
+  const pendingAllowed = PENDING_ALLOWED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+  if (user && isProtected && !pendingAllowed) {
+    const { data: access } = await supabase
+      .from("profiles")
+      .select("role, approval_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const role = access?.role as string | undefined;
+    const status = access?.approval_status as string | undefined;
+
+    // Admins/vendors/customers always pass; partners must be approved.
+    const alwaysAllowed =
+      role === "admin" || role === "vendor" || role === "customer";
+    const partnerApproved = status === "approved";
+
+    if (!alwaysAllowed && !partnerApproved) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/pending-approval";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;

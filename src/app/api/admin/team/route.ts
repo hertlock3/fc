@@ -60,9 +60,12 @@ export async function POST(request: Request) {
   const user = (users?.users ?? []).find((u) => u.email?.toLowerCase() === email);
   if (!user) return apiError(`No account found for ${email}.`, 404);
 
+  // Promoting an account to a partner role also APPROVES it — staff are
+  // explicitly vouching for this account. (Approval of self-registered
+  // partners happens through /api/admin/partners instead.)
   const { error } = await admin
     .from("profiles")
-    .update({ role })
+    .update({ role, approval_status: "approved" })
     .eq("id", user.id);
   if (error) return apiError(error.message, 500);
 

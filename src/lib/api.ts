@@ -25,7 +25,8 @@ type AuthResult =
 
 /**
  * Resolve the authenticated user for a route handler. Returns a ready-to-send
- * error response (503 setup / 401 unauthenticated) when auth cannot proceed.
+ * error response (503 setup / 401 unauthenticated / 403 unapproved partner)
+ * when auth cannot proceed.
  */
 export async function requireApiUser(): Promise<AuthResult> {
   if (!isSupabaseConfigured()) {
@@ -44,6 +45,29 @@ export async function requireApiUser(): Promise<AuthResult> {
   if (!user) {
     return { ok: false, response: apiError("You must be signed in.", 401) };
   }
+
+  // Partner approval gate: pending riders/stockists cannot call platform
+  // APIs (orders, chat, courier actions, checkout, …) until approved.
+  const { data: access } = await supabase
+    .from("profiles")
+    .select("role, approval_status")
+    .eq("id", user.id)
+    .maybeSingle();
+  const role = (access as { role?: string } | null)?.role;
+  const status = (access as { approval_status?: string } | null)?.approval_status;
+  const alwaysAllowed =
+    role === "admin" || role === "vendor" || role === "customer";
+  if (!alwaysAllowed && status !== "approved") {
+    return {
+      ok: false,
+      response: apiError(
+        "Your account is pending admin approval.",
+        403,
+        { code: "pending_approval" }
+      ),
+    };
+  }
+
   return { ok: true, user, supabase };
 }
 

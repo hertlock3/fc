@@ -106,7 +106,8 @@ the Supabase **SQL Editor** and running it.
 1. [`supabase/migrations/20260920120000_init.sql`](supabase/migrations/20260920120000_init.sql) — tables, enums, RLS policies
 2. [`supabase/migrations/20260921000000_couriers_messaging.sql`](supabase/migrations/20260921000000_couriers_messaging.sql) — courier role, chat
 3. [`supabase/migrations/20260922000000_stockists_tracking.sql`](supabase/migrations/20260922000000_stockists_tracking.sql) — stockists + GPS tracking
-4. [`supabase/seed.sql`](supabase/seed.sql) — categories, Farmer's Choice products, pricing settings
+4. [`supabase/migrations/20260923120000_partner_approval.sql`](supabase/migrations/20260923120000_partner_approval.sql) — partner approval gate (`profiles.approval_status`)
+5. [`supabase/seed.sql`](supabase/seed.sql) — categories, Farmer's Choice products, pricing settings
 
 The stockists migration seeds the principal Ruiru plant plus two example
 stockists so nearest-location routing works immediately.
@@ -129,6 +130,22 @@ where id = (select id from auth.users where email = 'you@example.com');
 ```
 
 You now have access to `/admin`, where you approve orders and dispatch riders.
+
+### 4. Partner approval (riders & stockists)
+
+Anyone can **apply** to become a rider or stockist at `/register/partner`, but the
+account starts **pending**: until an admin approves it, every page redirects to
+`/pending-approval` (a hold screen with a blurred backdrop and a “pending
+authentication” notice) and every platform API returns `403 pending_approval`.
+This ensures random rider/stockist accounts can't be self-created.
+
+- **Approve / reject** in **Admin → Team** (`/admin/team`) under *Pending
+  approvals*. Approved partners get full access; *Revoke access* re-locks an
+  account instantly.
+- Stockists additionally need their **location activated** in
+  **Admin → Stockists** (`/admin/stockists`) before orders are routed to them —
+  account approval and location verification are separate steps.
+- Existing accounts created before this gate are grandfathered as approved.
 
 ---
 

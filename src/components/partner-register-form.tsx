@@ -12,9 +12,10 @@ import { cn } from "@/lib/utils";
 /**
  * Partner registration — for riders (couriers) and stockists.
  *
- * Stockists provide business details; their location is created INACTIVE and
- * activated by Farmer's Choice staff after verification. Riders are
- * operational immediately.
+ * Every partner account starts PENDING: an admin approves it before the
+ * partner can use the platform (they land on /pending-approval). Stockists
+ * additionally provide business details; their location is created INACTIVE
+ * and activated by Farmer's Choice staff after verification.
  */
 export function PartnerRegisterForm() {
   const router = useRouter();
@@ -61,7 +62,8 @@ export function PartnerRegisterForm() {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "Registration failed.");
 
-      // Auto sign-in so the partner lands in their dashboard straight away.
+      // Auto sign-in so the partner lands on the hold screen straight away.
+      // Platform access unlocks once an admin approves the account.
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -69,12 +71,17 @@ export function PartnerRegisterForm() {
       });
       if (signInError) {
         setNotice("Account created. Please sign in to continue.");
-        setTimeout(() => router.push("/login?next=/courier"), 1200);
+        setTimeout(() => router.push("/login?next=/pending-approval"), 1200);
         return;
       }
 
-      router.push(role === "courier" ? "/courier" : "/stockist");
-      router.refresh();
+      setNotice(
+        "Registration received! Your account is pending admin approval — you'll get full access once approved."
+      );
+      setTimeout(() => {
+        router.push("/pending-approval");
+        router.refresh();
+      }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
