@@ -51,7 +51,9 @@ jobs:
         run: npm test
 
   smoke:
-    name: Smoke test (end-to-end)
+    # TEMPORARY probe: booleans embedded in the job display name so secret
+    # visibility can be verified via the API. Revert once configured.
+    name: "PROBE url=${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }} anon=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' }} svc=${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }} fc=${{ secrets.FC_SEC != '' }} var=${{ vars.NEXT_PUBLIC_SUPABASE_URL != '' }}"
     needs: checks
     runs-on: ubuntu-latest
     # Runs only on pushes to main. The `secrets` context is not available in
