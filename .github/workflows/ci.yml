@@ -1,0 +1,90 @@
+# ============================================================================
+# Farmer's Choice Market — CI
+#
+# Job "checks" — lint, typecheck and unit tests. No secrets needed; runs on
+#                every push and pull request.
+# Job "smoke"  — the end-to-end smoke test against a real Supabase project.
+#                Skips automatically when secrets are absent (forks), so PRs
+#                stay green.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   NEXT_PUBLIC_SUPABASE_URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY
+#   SUPABASE_SERVICE_ROLE_KEY
+#   SMOKE_ADMIN_EMAIL   (optional — an admin account the test may reuse;
+#                        a per-run admin is created and removed otherwise)
+# ============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, typecheck & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (must be error-free)
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
+
+  smoke:
+    name: Smoke test (end-to-end)
+    needs: checks
+    runs-on: ubuntu-latest
+    # Runs only on pushes to main. The secret check happens at step level —
+    # the `secrets` context is not available in job-level `if` expressions.
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start dev server
+        if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }}
+        run: |
+          # The smoke test waits for /api/health itself; give it a head start.
+          npm run dev &
+          sleep 5
+
+      - name: Run smoke test
+        if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL }}
+          APP_URL: http://localhost:3000
+        run: npm run smoke
+
+      - name: Report skipped smoke run
+        if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL == '' }}
+        run: echo "Supabase secrets not configured — smoke test skipped (unit checks still ran)."
