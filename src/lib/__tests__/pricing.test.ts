@@ -9,7 +9,7 @@ import {
 } from "@/lib/pricing";
 
 const settings: PricingSettings = {
-  serviceFeePercent: 5,
+  serviceFeePercent: 3,
   delivery: {
     baseFee: 100,
     perKmFee: 35,
@@ -67,8 +67,8 @@ describe("isPeakHour", () => {
 });
 
 describe("defaultPricingSettings", () => {
-  it("defaults the platform service fee to 5%", () => {
-    expect(defaultPricingSettings().serviceFeePercent).toBe(5);
+  it("defaults the platform service fee to 3%", () => {
+    expect(defaultPricingSettings().serviceFeePercent).toBe(3);
   });
 });
 
@@ -83,15 +83,15 @@ describe("computeQuote", () => {
     },
   ];
 
-  it("adds the 5% service fee on (goods + delivery) and pays the vendor goods only", () => {
+  it("adds the 3% service fee on (goods + delivery) and pays the vendor goods only", () => {
     const quote = computeQuote({ items, distanceKm: 5, settings, at: NOON });
 
     expect(quote.subtotal_cents).toBe(96000);
     expect(quote.delivery_fee_cents).toBe(27500);
-    expect(quote.service_fee_cents).toBe(6175); // 5% of 123,500
-    expect(quote.total_cents).toBe(96000 + 27500 + 6175);
+    expect(quote.service_fee_cents).toBe(3705); // 3% of 123,500
+    expect(quote.total_cents).toBe(96000 + 27500 + 3705);
     expect(quote.vendor_payout_cents).toBe(96000);
-    expect(quote.platform_fee_cents).toBe(6175);
+    expect(quote.platform_fee_cents).toBe(3705);
   });
 
   it("charges no delivery (and 0 distance) when the distance is unknown", () => {
@@ -99,7 +99,7 @@ describe("computeQuote", () => {
 
     expect(quote.delivery_fee_cents).toBe(0);
     expect(quote.distance_km).toBeNull();
-    expect(quote.service_fee_cents).toBe(4800); // 5% of 96,000
-    expect(quote.total_cents).toBe(100800);
+    expect(quote.service_fee_cents).toBe(2880); // 3% of 96,000
+    expect(quote.total_cents).toBe(98880);
   });
 });

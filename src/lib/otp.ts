@@ -31,6 +31,11 @@ export async function issueOtp(userEmail: string): Promise<void> {
   if (error) {
     // Surface rate limits / config problems — the admin needs to know the
     // email will not arrive rather than waiting on a code that never comes.
+    if (/over_email_send_rate_limit/i.test(error.message)) {
+      throw new Error(
+        `Could not send the verification email: too many emails requested. ${error.message}`
+      );
+    }
     throw new Error(`Could not send the verification email: ${error.message}`);
   }
 }

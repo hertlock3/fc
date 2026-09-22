@@ -260,7 +260,7 @@ export function CheckoutClient({
             </div>
             <div className="flex justify-between">
               <dt className="text-slate-600">
-                Service fee ({quote?.service_fee_percent ?? 5}%)
+                Service fee ({quote?.service_fee_percent ?? 3}%)
               </dt>
               <dd className="font-medium text-accent-700">
                 {quoteLoading ? (

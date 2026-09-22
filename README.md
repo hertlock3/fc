@@ -19,14 +19,14 @@ Adds items to cart ──► Checkout picks a delivery address
    │            Distance-based delivery fee (store → customer)
    │                        │
    ▼                        ▼
-Invoice = goods + delivery + 5% platform service fee
+Invoice = goods + delivery + 3% platform service fee
    │
    ▼
 M-Pesa STK Push (Lipa na M-Pesa) ──► customer enters PIN
    │
    ▼
 Payment confirmed (webhook) ──► order marked PAID
-   │      • platform keeps the 5% service fee
+   │      • platform keeps the 3% service fee
    │      • a Farmer's Choice payout invoice (goods only) is generated
    ▼
 Order routed to the NEAREST stockist (admin can override / re-route)
@@ -42,7 +42,7 @@ Live GPS tracking until DELIVERED
 ```
 
 Every order carries two invoices: a **customer invoice** (what was paid) and a
-**vendor invoice** (Farmers Choice's payout, after the 5% fee is deducted).
+**vendor invoice** (Farmers Choice's payout, after the 3% fee is deducted).
 
 ---
 
@@ -228,6 +228,37 @@ Geocoding is proxied through `/api/geocode/*` server-side so a compliant
 `User-Agent` is sent and the public endpoints can be rate-limited. Set a real
 contact in `GEOCODE_USER_AGENT` before going live.
 
+### Email delivery (verification codes)
+
+The admin OTP that protects the M-Pesa paybill change is emailed by **Supabase
+Auth**. On hosted Supabase, the built-in email service only delivers to
+**team-member addresses** and is capped at ~2 emails/hour — so the OTP silently
+never arrives for anyone else. Fix it by attaching a real SMTP provider
+(any provider works; [Resend](https://resend.com) has a simple free tier):
+
+1. Create a Resend API key ([resend.com/api-keys](https://resend.com/api-keys))
+   — a *sending access* key is enough.
+2. Supabase dashboard → **Authentication → SMTP Settings** → enable custom SMTP:
+
+   | Field         | Value                          |
+   | ------------- | ------------------------------ |
+   | Host          | `smtp.resend.com`              |
+   | Port          | `465`                          |
+   | Username      | `resend`                       |
+   | Password      | your `re_…` API key            |
+   | Sender email  | an address Resend may send from |
+   | Sender name   | `Farmer's Choice Market`       |
+
+3. Without a verified domain, Resend only allows `onboarding@resend.dev` as the
+   sender — fine for testing. For production, add and verify your domain in
+   Resend (**Domains → Add domain**) and use a real address like
+   `no-reply@yourdomain.com`.
+4. Also raise **Authentication → Rate Limits → Emails sent per hour** (e.g. 30)
+   now that a real provider is attached.
+
+No app code or env var is involved — the key lives only in the Supabase
+project.
+
 ---
 
 ## Security model
@@ -239,7 +270,7 @@ contact in `GEOCODE_USER_AGENT` before going live.
   read-only; writes that move money use the service role *after* an explicit
   authorisation check.
 - **Server-authoritative pricing.** All totals — goods, distance-based delivery
-  and the 5% service fee — are recomputed on the server at checkout. Nothing
+  and the 3% service fee — are recomputed on the server at checkout. Nothing
   from the browser is trusted.
 - **Payment callbacks** are validated with a shared secret and processed
   idempotently (duplicate callbacks are ignored).
@@ -315,5 +346,5 @@ OpenStreetMap and Nominatim, all key-free.
 
 **How do I run the tests?** `npm test` (or `npm run test:watch`).
 
-**Where does the 5% go?** It's the platform's revenue (`orders.platform_fee_cents`).
+**Where does the 3% go?** It's the platform's revenue (`orders.platform_fee_cents`).
 Farmers Choice is invoiced for the goods value only (`orders.vendor_payout_cents`).

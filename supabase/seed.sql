@@ -7,7 +7,7 @@
 insert into public.settings (key, value)
 values (
   'pricing',
-  '{"serviceFeePercent":5,"delivery":{"baseFee":100,"perKmFee":35,"minFee":130,"maxFee":1500,"peakMultiplier":1.15}}'::jsonb
+  '{"serviceFeePercent":3,"delivery":{"baseFee":100,"perKmFee":35,"minFee":130,"maxFee":1500,"peakMultiplier":1.15}}'::jsonb
 )
 on conflict (key) do update set value = excluded.value, updated_at = now();
 

@@ -71,7 +71,7 @@ export function SiteFooter() {
       <div className="border-t border-slate-100 py-5">
         <p className="container-page text-xs text-slate-400">
           © {new Date().getFullYear()} Farmer&apos;s Choice Market. Prices in Kenyan
-          Shillings. A 5% service fee applies to goods and delivery.
+          Shillings. A 3% service fee applies to goods and delivery.
         </p>
       </div>
     </footer>

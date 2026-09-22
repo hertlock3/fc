@@ -33,7 +33,7 @@ const STEPS = [
   {
     icon: CreditCard,
     title: "3. Pay with M-Pesa",
-    body: "Review your invoice and approve the STK push on your phone. Goods, delivery and the 5% service fee in one payment.",
+    body: "Review your invoice and approve the STK push on your phone. Goods, delivery and the 3% service fee in one payment.",
   },
   {
     icon: BikeIcon,
@@ -76,7 +76,7 @@ export default async function HomePage() {
               <span className="text-brand-700">delivered to your door.</span>
             </h1>
             <p className="mt-4 max-w-lg text-lg text-slate-600">
-              Order genuine Farmer&apos;s Choice meat and groceries, pay securely with
+              Order genuine Farmers Choice meats and groceries, pay securely with
               M-Pesa, and let a rider bring it to you — fresh, fast and fairly
               priced.
             </p>
@@ -90,7 +90,7 @@ export default async function HomePage() {
             </div>
             <ul className="mt-8 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
               {[
-                "Genuine Farmer's Choice products",
+                "Genuine Farmers Choice products",
                 "Secure M-Pesa STK checkout",
                 "Distance-based fair delivery",
                 "Live rider tracking",
@@ -120,12 +120,12 @@ export default async function HomePage() {
                 </div>
                 <Row
                   label={`Service fee (${config.serviceFee.percent}%)`}
-                  value="88.45"
+                  value="53.07"
                   tone="accent"
                 />
                 <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-base font-semibold text-slate-900">
                   <dt>Total paid via M-Pesa</dt>
-                  <dd>KES 1,857.45</dd>
+                  <dd>KES 1,822.07</dd>
                 </div>
               </dl>
               <div className="mt-5 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">

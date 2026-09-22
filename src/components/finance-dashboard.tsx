@@ -226,6 +226,14 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Seconds until the resend link re-enables (rate-limit back-off). */
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const dirty =
     paybill !== merchant.paybill ||
@@ -239,7 +247,15 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
       body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(data?.error ?? "Request failed.");
+    if (!res.ok) {
+      const err = new Error(data?.error ?? "Request failed.") as Error & {
+        retryAfterSeconds?: number;
+      };
+      if (typeof data?.retryAfterSeconds === "number") {
+        err.retryAfterSeconds = data.retryAfterSeconds;
+      }
+      throw err;
+    }
     return data;
   }
 
@@ -250,9 +266,21 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
     try {
       const data = await post({ action: "request-otp" });
       setOtpStage("code-sent");
+      setCooldown(60); // match the server-side resend cooldown
       setNotice(`Verification code sent to ${data.sentTo}. It expires in a few minutes.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send code.");
+      const retry =
+        err instanceof Error && "retryAfterSeconds" in err
+          ? (err as { retryAfterSeconds?: number }).retryAfterSeconds
+          : undefined;
+      if (typeof retry === "number" && retry > 0) {
+        setCooldown(retry);
+        setNotice(
+          `Email rate limit hit — you can request a new code in ${retry}s.`
+        );
+      } else {
+        setError(err instanceof Error ? err.message : "Could not send code.");
+      }
     } finally {
       setBusy(false);
     }
@@ -342,9 +370,26 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
               </div>
               <p className="mt-2 text-xs text-slate-500">
                 Didn&apos;t get it? Check spam, or{" "}
-                <button onClick={requestCode} className="font-medium text-brand-700 underline" disabled={busy}>
-                  resend
-                </button>.
+                {cooldown > 0 ? (
+                  <span className="text-slate-400">resend available in {cooldown}s</span>
+                ) : (
+                  <button onClick={requestCode} className="font-medium text-brand-700 underline" disabled={busy}>
+                    resend
+                  </button>
+                )}.
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Running locally? Supabase captures emails instead of sending them —
+                open the Mail inbox at{" "}
+                <a
+                  href="http://127.0.0.1:54324"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  127.0.0.1:54324
+                </a>{" "}
+                to read the code.
               </p>
             </div>
           )}
@@ -352,8 +397,14 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
           <div className="flex flex-wrap gap-2">
             {otpStage === "idle" ? (
               <>
-                <Button onClick={requestCode} disabled={busy || !dirty || !paybill}>
-                  {busy ? <Spinner /> : <><Send className="h-4 w-4" /> Email me a code</>}
+                <Button onClick={requestCode} disabled={busy || cooldown > 0 || !dirty || !paybill}>
+                  {busy ? (
+                    <Spinner />
+                  ) : cooldown > 0 ? (
+                    <>Available in {cooldown}s</>
+                  ) : (
+                    <><Send className="h-4 w-4" /> Email me a code</>
+                  )}
                 </Button>
                 <Button variant="ghost" onClick={() => { setEditing(false); setError(null); setNotice(null); }}>
                   Cancel

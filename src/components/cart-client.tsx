@@ -128,7 +128,7 @@ export function CartClient({ items }: { items: CartItem[] }) {
             </div>
             <div className="flex justify-between">
               <dt className="text-slate-600">Service fee</dt>
-              <dd className="text-slate-500">5% at checkout</dd>
+              <dd className="text-slate-500">3% at checkout</dd>
             </div>
           </dl>
           <div className="mt-4 flex justify-between border-t border-slate-200 pt-4 text-base font-semibold text-slate-900">
@@ -148,7 +148,7 @@ export function CartClient({ items }: { items: CartItem[] }) {
         </div>
 
         <p className="mt-3 px-1 text-xs text-slate-400">
-          Delivery and the 5% service fee are added at checkout based on your chosen
+          Delivery and the 3% service fee are added at checkout based on your chosen
           delivery location.
         </p>
       </aside>

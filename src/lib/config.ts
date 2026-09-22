@@ -60,7 +60,7 @@ export const config = {
 
   /** Platform service fee applied on top of (goods + delivery). */
   serviceFee: {
-    percent: num("SERVICE_FEE_PERCENT", 5),
+    percent: num("SERVICE_FEE_PERCENT", 3),
   },
 
   /**

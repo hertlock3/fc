@@ -7,6 +7,12 @@ import { issueOtp, verifyOtp } from "@/lib/otp";
 /**
  * M-Pesa paybill/till management — admin only, email-OTP protected.
  *
+ * OTP emails go through Supabase Auth, whose default send quota is very small
+ * (2/hour locally). Rapid "resend" clicks therefore hit
+ * `over_email_send_rate_limit` before any code visibly arrives. We add a
+ * per-admin cooldown and map Supabase's throttle error to a friendly 429 with
+ * a `retryAfterSeconds` hint the UI can count down on.
+ *
  * GET    → current receiving-account settings + masked details
  * POST   → { action: "request-otp" | "verify" }
  *          "request-otp": emails a 6-digit code to the admin's address
@@ -15,6 +21,26 @@ import { issueOtp, verifyOtp } from "@/lib/otp";
  * The change takes effect on the NEXT checkout (M-Pesa STK push uses the
  * stored value at charge time).
  */
+
+/** Minimum gap between OTP emails per admin, so resends can't spam Supabase. */
+const OTP_RESEND_COOLDOWN_MS = 60_000;
+const otpCooldowns = new Map<string, number>();
+
+function otpCooldownRemaining(email: string): number {
+  const until = otpCooldowns.get(email) ?? 0;
+  return Math.max(0, until - Date.now());
+}
+
+/** Supabase signals email throttling with `over_email_send_rate_limit`. */
+function isEmailRateLimit(message: string): boolean {
+  return /over_email_send_rate_limit|rate limit/i.test(message);
+}
+
+/** Parse the "…after 43 seconds…" hint from Supabase throttle messages. */
+function retryAfterSeconds(message: string): number | undefined {
+  const match = message.match(/after (\d+) seconds?/i);
+  return match ? Number(match[1]) : undefined;
+}
 
 const changeSchema = z.object({
   action: z.enum(["request-otp", "verify"]),
@@ -49,11 +75,33 @@ export async function POST(request: Request) {
   const email = auth.user.email ?? "";
 
   if (action === "request-otp") {
+    const remainingMs = otpCooldownRemaining(email);
+    if (remainingMs > 0) {
+      return json(
+        {
+          error: `A code was just sent to ${email}. Request another in ${Math.ceil(remainingMs / 1000)}s.`,
+          retryAfterSeconds: Math.ceil(remainingMs / 1000),
+        },
+        { status: 429 }
+      );
+    }
+
     try {
       await issueOtp(email);
     } catch (err) {
-      return apiError(err instanceof Error ? err.message : "Could not send code.", 502);
+      const message = err instanceof Error ? err.message : "Could not send code.";
+      if (isEmailRateLimit(message)) {
+        return json(
+          {
+            error: "Too many verification emails requested. Please wait a minute and try again.",
+            retryAfterSeconds: retryAfterSeconds(message) ?? 60,
+          },
+          { status: 429 }
+        );
+      }
+      return apiError(message, 502);
     }
+    otpCooldowns.set(email, Date.now() + OTP_RESEND_COOLDOWN_MS);
     return json({ ok: true, sentTo: email });
   }
 
