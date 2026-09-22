@@ -228,36 +228,33 @@ Geocoding is proxied through `/api/geocode/*` server-side so a compliant
 `User-Agent` is sent and the public endpoints can be rate-limited. Set a real
 contact in `GEOCODE_USER_AGENT` before going live.
 
-### Email delivery (verification codes)
+### Admin authenticator (TOTP) for paybill changes
 
-The admin OTP that protects the M-Pesa paybill change is emailed by **Supabase
-Auth**. On hosted Supabase, the built-in email service only delivers to
-**team-member addresses** and is capped at ~2 emails/hour — so the OTP silently
-never arrives for anyone else. Fix it by attaching a real SMTP provider
-(any provider works; [Resend](https://resend.com) has a simple free tier):
+Amending the M-Pesa receiving account requires a **TOTP code** (RFC 6238 —
+the same standard as [totp-cli](https://github.com/yitsushi/totp-cli), Google
+Authenticator, Aegis, 1Password…). Nothing is emailed at verification time,
+so there is no email delivery to fail.
 
-1. Create a Resend API key ([resend.com/api-keys](https://resend.com/api-keys))
-   — a *sending access* key is enough.
-2. Supabase dashboard → **Authentication → SMTP Settings** → enable custom SMTP:
+One-time setup, from **Admin → Finance → M-Pesa receiving account → Amend**:
 
-   | Field         | Value                          |
-   | ------------- | ------------------------------ |
-   | Host          | `smtp.resend.com`              |
-   | Port          | `465`                          |
-   | Username      | `resend`                       |
-   | Password      | your `re_…` API key            |
-   | Sender email  | an address Resend may send from |
-   | Sender name   | `Farmer's Choice Market`       |
+1. Click **Generate my secret** — the server creates a random 20-byte secret
+   (stored in `admin_totp_secrets`, a service-role-only table) and shows an
+   `otpauth://totp/…` URI.
+2. Add it to your authenticator app — paste the secret into totp-cli
+   (`totp-cli import`) or scan/paste the URI into any TOTP app.
+3. Type the code your app shows and click **Confirm**. Enrollment is now
+   active for your account.
 
-3. Without a verified domain, Resend only allows `onboarding@resend.dev` as the
-   sender — fine for testing. For production, add and verify your domain in
-   Resend (**Domains → Add domain**) and use a real address like
-   `no-reply@yourdomain.com`.
-4. Also raise **Authentication → Rate Limits → Emails sent per hour** (e.g. 30)
-   now that a real provider is attached.
+Every paybill change then asks for a fresh code. Codes rotate every 30 s,
+tolerate ±1 window of clock drift and are **single-use** (the consumed
+time-step is stored server-side, so a captured code cannot be replayed).
+Re-enrolling (e.g. new phone) simply rotates the secret; 6 wrong attempts
+per 5 minutes trigger a lockout.
 
-No app code or env var is involved — the key lives only in the Supabase
-project.
+> Previously this used Supabase Auth's email OTP. That was dropped because
+> hosted Supabase refuses auth emails to non-team addresses without custom
+> SMTP, and even with SMTP configured codes arrived unreliably (spam
+> folders, magic links instead of digits).
 
 ---
 

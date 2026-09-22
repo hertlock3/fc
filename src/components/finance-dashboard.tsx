@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Building, CheckCircle2, PieChart, Send } from "lucide-react";
+import { BarChart3, Building, CheckCircle2, KeyRound, PieChart, ShieldCheck } from "lucide-react";
 import { Alert, Badge, Button, Input, Label, Spinner } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 
@@ -39,11 +39,17 @@ interface Merchant {
   name: string;
 }
 
+interface TotpStatus {
+  enrolled: boolean;
+  pending: boolean;
+}
+
 /* ------------------------------------------------------------ main component */
 
 export function FinanceDashboard() {
   const [financials, setFinancials] = useState<Financials | null>(null);
   const [merchant, setMerchant] = useState<Merchant | null>(null);
+  const [totp, setTotp] = useState<TotpStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +66,7 @@ export function FinanceDashboard() {
       if (!merchRes.ok) throw new Error(merch?.error ?? "Could not load paybill settings.");
       setFinancials(fin);
       setMerchant(merch.merchant);
+      setTotp(merch.totp ?? { enrolled: false, pending: false });
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load.");
@@ -94,7 +101,9 @@ export function FinanceDashboard() {
       {merchant && (
         <PaybillEditor
           merchant={merchant}
+          totp={totp}
           onSaved={(m) => setMerchant(m)}
+          onTotpChanged={(t) => setTotp(t)}
         />
       )}
     </div>
@@ -145,7 +154,7 @@ function MoneyFlow({ financials }: { financials: Financials }) {
                     style={{ height: `${Math.max(4, (m.cents / maxMonthly) * 100)}%` }}
                   />
                   <span className="text-xs text-slate-400">{m.month}</span>
-            </div>
+                </div>
               ))
             )}
           </div>
@@ -215,30 +224,34 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
 
 /* ---------------------------------------------------------- paybill editor -- */
 
-function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m: Merchant) => void }) {
+interface Enrollment {
+  otpauthUri: string;
+  secret: string;
+}
+
+function PaybillEditor({
+  merchant,
+  totp,
+  onSaved,
+  onTotpChanged,
+}: {
+  merchant: Merchant;
+  totp: TotpStatus | null;
+  onSaved: (m: Merchant) => void;
+  onTotpChanged: (t: TotpStatus) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [paybill, setPaybill] = useState(merchant.paybill);
   const [accountPrefix, setAccountPrefix] = useState(merchant.accountPrefix);
   const [name, setName] = useState(merchant.name);
 
-  const [otpStage, setOtpStage] = useState<"idle" | "code-sent">("idle");
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  /** Seconds until the resend link re-enables (rate-limit back-off). */
-  const [cooldown, setCooldown] = useState(0);
 
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(timer);
-  }, [cooldown]);
-
-  const dirty =
-    paybill !== merchant.paybill ||
-    accountPrefix !== merchant.accountPrefix ||
-    name !== merchant.name;
+  const enrolled = totp?.enrolled ?? false;
 
   async function post(payload: Record<string, unknown>) {
     const res = await fetch("/api/admin/paybill", {
@@ -259,31 +272,38 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
     return data;
   }
 
-  async function requestCode() {
+  async function startEnrollment() {
     setBusy(true);
     setError(null);
-    setNotice(null);
     try {
-      const data = await post({ action: "request-otp" });
-      setOtpStage("code-sent");
-      setCooldown(60); // match the server-side resend cooldown
-      setNotice(`Verification code sent to ${data.sentTo}. It expires in a few minutes.`);
+      const data = await post({ action: "enroll" });
+      setEnrollment({ otpauthUri: data.otpauthUri, secret: data.secret });
+      setNotice(null);
     } catch (err) {
-      const retry =
-        err instanceof Error && "retryAfterSeconds" in err
-          ? (err as { retryAfterSeconds?: number }).retryAfterSeconds
-          : undefined;
-      if (typeof retry === "number" && retry > 0) {
-        setCooldown(retry);
-        setNotice(
-          `Email rate limit hit — you can request a new code in ${retry}s.`
-        );
-      } else {
-        setError(err instanceof Error ? err.message : "Could not send code.");
-      }
+      setError(err instanceof Error ? err.message : "Could not start enrollment.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function confirmEnrollment() {
+    setBusy(true);
+    setError(null);
+    try {
+      const data = await post({ action: "confirm", code });
+      setTotpChanged({ enrolled: true, pending: false });
+      setEnrollment(null);
+      setCode("");
+      setNotice(data.message ?? "Authenticator confirmed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function setTotpChanged(t: TotpStatus) {
+    onTotpChanged(t);
   }
 
   async function verifyAndSave() {
@@ -294,7 +314,7 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
       onSaved({ paybill, accountPrefix, name });
       setNotice(data.message ?? "Updated.");
       setEditing(false);
-      setOtpStage("idle");
+      setEnrollment(null);
       setCode("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed.");
@@ -311,10 +331,12 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
             <Building className="h-4 w-4 text-brand-600" /> M-Pesa receiving account
           </h2>
           <p className="mt-1 text-xs text-slate-400">
-            The paybill/till that receives customer payments. Changes need email verification.
+            The paybill/till that receives customer payments. Changes need your authenticator code.
           </p>
         </div>
-        <Badge tone="warning">Sensitive</Badge>
+        <Badge tone={enrolled ? "success" : "warning"}>
+          {enrolled ? "Authenticator active" : "Authenticator not set up"}
+        </Badge>
       </div>
 
       {!editing ? (
@@ -353,9 +375,59 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
             </div>
           </div>
 
-          {otpStage === "code-sent" && (
+          {/* ---- one-time authenticator setup ---- */}
+          {!enrolled && !enrollment && (
+            <div className="rounded-xl border border-accent-200 bg-accent-50 p-4">
+              <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                <KeyRound className="h-4 w-4 text-accent-600" /> First time here — set up your authenticator
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Changes are protected by a TOTP authenticator (totp-cli, Google Authenticator,
+                Aegis, 1Password…). Generate your secret, add it to the app, then confirm with a
+                code — one time only.
+              </p>
+              <Button className="mt-3" size="sm" onClick={startEnrollment} disabled={busy}>
+                {busy ? <Spinner /> : <><KeyRound className="h-4 w-4" /> Generate my secret</>}
+              </Button>
+            </div>
+          )}
+
+          {enrollment && (
             <div className="rounded-xl border border-brand-200 bg-brand-50 p-4">
-              <Label>6-digit code from your email</Label>
+              <p className="text-sm font-medium text-slate-900">Add this secret to your authenticator app</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Paste the secret into totp-cli (<code>totp-cli import</code>), or scan the
+                otpauth URI with your app:
+              </p>
+              <code className="mt-2 block max-w-full overflow-x-auto rounded-lg bg-white px-3 py-2 text-xs text-slate-800 ring-1 ring-slate-200">
+                {enrollment.otpauthUri}
+              </code>
+              <p className="mt-2 break-all text-xs text-slate-500">
+                Secret: <span className="font-mono font-semibold text-slate-700">{enrollment.secret}</span>
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="••••••"
+                  inputMode="numeric"
+                  className="max-w-40 tracking-[0.5em]"
+                  aria-label="6-digit code from your authenticator"
+                />
+                <Button onClick={confirmEnrollment} disabled={busy || code.length !== 6}>
+                  {busy ? <Spinner /> : <><CheckCircle2 className="h-4 w-4" /> Confirm</>}
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                Codes rotate every 30 s — type the one currently shown in your app.
+              </p>
+            </div>
+          )}
+
+          {/* ---- verification for the actual change ---- */}
+          {enrolled && !enrollment && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <Label>Code from your authenticator</Label>
               <div className="flex gap-2">
                 <Input
                   value={code}
@@ -363,58 +435,22 @@ function PaybillEditor({ merchant, onSaved }: { merchant: Merchant; onSaved: (m:
                   placeholder="••••••"
                   inputMode="numeric"
                   className="max-w-40 tracking-[0.5em]"
+                  aria-label="6-digit code from your authenticator"
                 />
                 <Button onClick={verifyAndSave} disabled={busy || code.length !== 6 || !paybill}>
-                  {busy ? <Spinner /> : <><CheckCircle2 className="h-4 w-4" /> Verify & apply</>}
+                  {busy ? <Spinner /> : <><ShieldCheck className="h-4 w-4" /> Verify & apply</>}
                 </Button>
               </div>
-              <p className="mt-2 text-xs text-slate-500">
-                Didn&apos;t get it? Check spam, or{" "}
-                {cooldown > 0 ? (
-                  <span className="text-slate-400">resend available in {cooldown}s</span>
-                ) : (
-                  <button onClick={requestCode} className="font-medium text-brand-700 underline" disabled={busy}>
-                    resend
-                  </button>
-                )}.
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Running locally? Supabase captures emails instead of sending them —
-                open the Mail inbox at{" "}
-                <a
-                  href="http://127.0.0.1:54324"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  127.0.0.1:54324
-                </a>{" "}
-                to read the code.
+              <p className="mt-2 text-xs text-slate-400">
+                Each code works once and expires with its 30-second window.
               </p>
             </div>
           )}
 
           <div className="flex flex-wrap gap-2">
-            {otpStage === "idle" ? (
-              <>
-                <Button onClick={requestCode} disabled={busy || cooldown > 0 || !dirty || !paybill}>
-                  {busy ? (
-                    <Spinner />
-                  ) : cooldown > 0 ? (
-                    <>Available in {cooldown}s</>
-                  ) : (
-                    <><Send className="h-4 w-4" /> Email me a code</>
-                  )}
-                </Button>
-                <Button variant="ghost" onClick={() => { setEditing(false); setError(null); setNotice(null); }}>
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <Button variant="ghost" onClick={() => { setOtpStage("idle"); setCode(""); setError(null); }}>
-                Back
-              </Button>
-            )}
+            <Button variant="ghost" onClick={() => { setEditing(false); setEnrollment(null); setCode(""); setError(null); }}>
+              Cancel
+            </Button>
           </div>
         </div>
       )}

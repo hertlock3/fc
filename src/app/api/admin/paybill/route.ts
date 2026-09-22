@@ -2,49 +2,40 @@ import { z } from "zod";
 import { requireApiAdmin, json, apiError, zodMessage } from "@/lib/api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadMerchantSettings, saveMerchantSettings } from "@/lib/settings";
-import { issueOtp, verifyOtp } from "@/lib/otp";
+import {
+  confirmTotpEnrollment,
+  getTotpStatus,
+  startTotpEnrollment,
+  verifyTotp,
+} from "@/lib/totp-store";
+import { rateLimit } from "@/lib/rate-limit";
 
 /**
- * M-Pesa paybill/till management — admin only, email-OTP protected.
+ * M-Pesa paybill/till management — admin only, TOTP-protected.
  *
- * OTP emails go through Supabase Auth, whose default send quota is very small
- * (2/hour locally). Rapid "resend" clicks therefore hit
- * `over_email_send_rate_limit` before any code visibly arrives. We add a
- * per-admin cooldown and map Supabase's throttle error to a friendly 429 with
- * a `retryAfterSeconds` hint the UI can count down on.
+ * The second factor is an RFC 6238 authenticator app (totp-cli, Google
+ * Authenticator, Aegis, 1Password…) instead of an emailed code: nothing is
+ * delivered at verification time, so there is no email to lose, and codes
+ * rotate every 30 s and are single-use (replay-guarded in the DB).
  *
- * GET    → current receiving-account settings + masked details
- * POST   → { action: "request-otp" | "verify" }
- *          "request-otp": emails a 6-digit code to the admin's address
- *          "verify": checks the code, then atomically persists the new paybill
+ * GET    → current receiving-account settings + TOTP enrollment status
+ * POST   → { action: "enroll" | "confirm" | "verify" }
+ *   enroll  → generates/rotates this admin's secret, returns an otpauth://
+ *             URI (render as QR or paste the secret into the app)
+ *   confirm → first valid code from the app flips enrollment to confirmed
+ *   verify  → checks a fresh code, then atomically persists the new paybill
  *
  * The change takes effect on the NEXT checkout (M-Pesa STK push uses the
  * stored value at charge time).
  */
 
-/** Minimum gap between OTP emails per admin, so resends can't spam Supabase. */
-const OTP_RESEND_COOLDOWN_MS = 60_000;
-const otpCooldowns = new Map<string, number>();
-
-function otpCooldownRemaining(email: string): number {
-  const until = otpCooldowns.get(email) ?? 0;
-  return Math.max(0, until - Date.now());
-}
-
-/** Supabase signals email throttling with `over_email_send_rate_limit`. */
-function isEmailRateLimit(message: string): boolean {
-  return /over_email_send_rate_limit|rate limit/i.test(message);
-}
-
-/** Parse the "…after 43 seconds…" hint from Supabase throttle messages. */
-function retryAfterSeconds(message: string): number | undefined {
-  const match = message.match(/after (\d+) seconds?/i);
-  return match ? Number(match[1]) : undefined;
-}
+/** Brute-force ceiling: 6 TOTP guesses per 5 min per admin. */
+const VERIFY_ATTEMPTS = 6;
+const VERIFY_WINDOW_MS = 5 * 60_000;
 
 const changeSchema = z.object({
-  action: z.enum(["request-otp", "verify"]),
-  /** Required for "verify" — the 6-digit code from the admin's email. */
+  action: z.enum(["enroll", "confirm", "verify"]),
+  /** Required for "confirm" and "verify" — the 6-digit authenticator code. */
   code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code").optional(),
   /** Required for "verify" — the pending new values. */
   paybill: z
@@ -60,8 +51,11 @@ export async function GET() {
   const auth = await requireApiAdmin();
   if (!auth.ok) return auth.response;
 
-  const merchant = await loadMerchantSettings(auth.supabase);
-  return json({ merchant });
+  const [merchant, totp] = await Promise.all([
+    loadMerchantSettings(auth.supabase),
+    getTotpStatus(auth.user.id),
+  ]);
+  return json({ merchant, totp });
 }
 
 export async function POST(request: Request) {
@@ -72,46 +66,50 @@ export async function POST(request: Request) {
   const parsed = changeSchema.safeParse(body);
   if (!parsed.success) return apiError(zodMessage(parsed.error), 422);
   const { action, code } = parsed.data;
-  const email = auth.user.email ?? "";
 
-  if (action === "request-otp") {
-    const remainingMs = otpCooldownRemaining(email);
-    if (remainingMs > 0) {
-      return json(
-        {
-          error: `A code was just sent to ${email}. Request another in ${Math.ceil(remainingMs / 1000)}s.`,
-          retryAfterSeconds: Math.ceil(remainingMs / 1000),
-        },
-        { status: 429 }
+  // ---- enroll: create/rotate this admin's TOTP secret -----------------------
+  if (action === "enroll") {
+    try {
+      const enrollment = await startTotpEnrollment({
+        userId: auth.user.id,
+        email: auth.user.email ?? "admin",
+      });
+      return json({ ok: true, ...enrollment });
+    } catch (err) {
+      return apiError(
+        err instanceof Error ? err.message : "Could not start enrollment.",
+        502
       );
     }
-
-    try {
-      await issueOtp(email);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not send code.";
-      if (isEmailRateLimit(message)) {
-        return json(
-          {
-            error: "Too many verification emails requested. Please wait a minute and try again.",
-            retryAfterSeconds: retryAfterSeconds(message) ?? 60,
-          },
-          { status: 429 }
-        );
-      }
-      return apiError(message, 502);
-    }
-    otpCooldowns.set(email, Date.now() + OTP_RESEND_COOLDOWN_MS);
-    return json({ ok: true, sentTo: email });
   }
 
-  // ---- verify & apply -------------------------------------------------------
   if (!code) return apiError("Enter the 6-digit code.", 422);
+
+  // Brute-force ceiling shared by confirm + verify.
+  const limit = rateLimit(`totp:${auth.user.id}`, VERIFY_ATTEMPTS, VERIFY_WINDOW_MS);
+  if (!limit.ok) {
+    return json(
+      {
+        error: `Too many attempts. Try again in ${limit.retryAfterSeconds}s.`,
+        retryAfterSeconds: limit.retryAfterSeconds,
+      },
+      { status: 429 }
+    );
+  }
+
+  // ---- confirm: prove the app imported the secret ---------------------------
+  if (action === "confirm") {
+    const result = await confirmTotpEnrollment(auth.user.id, code);
+    if (!result.ok) return apiError(result.error ?? "Verification failed.", 401);
+    return json({ ok: true, message: "Authenticator app confirmed." });
+  }
+
+  // ---- verify & apply --------------------------------------------------------
   if (parsed.data.paybill === undefined) {
     return apiError("No pending change to apply.", 422);
   }
 
-  const check = await verifyOtp(email, code);
+  const check = await verifyTotp(auth.user.id, code);
   if (!check.ok) return apiError(check.error ?? "Verification failed.", 401);
 
   const admin = createAdminClient();
