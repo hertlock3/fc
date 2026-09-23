@@ -323,6 +323,19 @@ export async function finalizePayment(
 
   // Idempotency guard.
   if (order.payment_status === "paid") {
+    // Late-arriving webhook: the STK query API does not return the receipt
+    // number, so when poll-based finalisation beat the callback to it the
+    // receipt is still missing — backfill it now.
+    if (input.receipt && !order.mpesa_receipt) {
+      await admin
+        .from("orders")
+        .update({ mpesa_receipt: input.receipt })
+        .eq("id", orderId);
+      await admin
+        .from("payments")
+        .update({ receipt: input.receipt })
+        .eq("id", payment.id);
+    }
     return { ok: true, status: "already_finalised" };
   }
 

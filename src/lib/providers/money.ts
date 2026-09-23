@@ -184,13 +184,39 @@ export class DarajaMoneyProvider implements MoneyProvider {
     return { password, timestamp };
   }
 
+  /**
+   * The shortcode a charge is pushed to, plus its transaction type.
+   *
+   * Sandbox only validates its own registered test shortcode (`174379`) in
+   * the Paybill flow — a real till or the Buy Goods type is rejected there
+   * ("Invalid TransactionType"), and sandbox never delivers prompts to real
+   * phones anyway. Production pushes to the merchant's till (Buy Goods — the
+   * till IS the business shortcode and PartyB) or the configured shortcode
+   * (Paybill).
+   */
+  private chargeParams(tillNumber?: string): {
+    receiver: string;
+    transactionType: "CustomerPayBillOnline" | "CustomerBuyGoodsOnline";
+  } {
+    if (config.money.mpesa.environment !== "production") {
+      return {
+        receiver: config.money.mpesa.shortcode,
+        transactionType: "CustomerPayBillOnline",
+      };
+    }
+    const { transactionType } = config.money.mpesa;
+    return {
+      receiver:
+        transactionType === "CustomerBuyGoodsOnline"
+          ? tillNumber ?? config.till.number
+          : config.money.mpesa.shortcode,
+      transactionType,
+    };
+  }
+
   async initiateCharge(req: ChargeRequest): Promise<ChargeResult> {
     const token = await this.getAccessToken();
-    const { transactionType } = config.money.mpesa;
-    // Till (Buy Goods) flow: the till number IS the business shortcode and the
-    // receiving account (PartyB). Paybill flow keeps the legacy shortcode.
-    const receiver =
-      transactionType === "CustomerBuyGoodsOnline" ? req.tillNumber : config.money.mpesa.shortcode;
+    const { receiver, transactionType } = this.chargeParams(req.tillNumber);
     this.assertConfigured(receiver);
     const { password, timestamp } = this.buildPassword(receiver);
 
@@ -243,11 +269,10 @@ export class DarajaMoneyProvider implements MoneyProvider {
 
   async queryStatus(checkoutRequestId: string, tillNumber?: string): Promise<ChargeStatus> {
     const token = await this.getAccessToken();
-    const { transactionType } = config.money.mpesa;
-    const receiver =
-      transactionType === "CustomerBuyGoodsOnline"
-        ? tillNumber ?? config.till.number
-        : config.money.mpesa.shortcode;
+    // Must match the shortcode the original push was sent to, or Daraja
+    // rejects the query with "invalid checkout request id".
+    const { receiver } = this.chargeParams(tillNumber);
+    this.assertConfigured(receiver);
     const { password, timestamp } = this.buildPassword(receiver);
 
     const res = await fetch(`${this.baseUrl}/mpesa/stkpushquery/v1/query`, {

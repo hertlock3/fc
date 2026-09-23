@@ -254,7 +254,17 @@ try {
   assert(health.status === 200, "/api/health → 200", `/api/health → ${health.status}`);
   assert(health.data?.supabaseConfigured === true, "Supabase configured", "Supabase NOT configured");
   assert(health.data?.serviceRoleConfigured === true, "Service role key set (checkout/admin)", "Service role key missing");
-  assert(health.data?.moneyProvider === "sim", "Money provider = sim (simulation mode)", `Unexpected money provider: ${health.data?.moneyProvider}`);
+  // The full lifecycle (checkout → paid → delivery) is only assertable with
+  // the credential-free sim provider: the Daraja sandbox confirms pushes
+  // automatically but never to a real phone, and production charges real
+  // money. Daraja deployments are validated by npm run mpesa:check instead.
+  const moneyProvider = health.data?.moneyProvider;
+  assert(moneyProvider === "sim", "Money provider = sim (full-lifecycle mode)", `Unexpected money provider: ${moneyProvider}`);
+  if (moneyProvider !== "sim") {
+    console.log("\n✗ Money provider is not 'sim' — re-run with MONEY_PROVIDER=sim.");
+    console.log("  (Daraja mode is verified separately: npm run mpesa:check)");
+    process.exit(1);
+  }
 
   section("1. Public & protected pages");
   const home = await fetch(BASE_URL, { redirect: "manual" });
@@ -344,7 +354,10 @@ try {
    * Used to prove the webhook path (and its idempotency guard) directly.
    */
   async function sendMpesaCallback({ checkoutRequestId, success = true, receipt, amount }) {
-    return fetch(`${BASE_URL}/api/payments/mpesa/callback`, {
+    const token = process.env.MPESA_CALLBACK_SECRET
+      ? `?token=${encodeURIComponent(process.env.MPESA_CALLBACK_SECRET)}`
+      : "";
+    return fetch(`${BASE_URL}/api/payments/mpesa/callback${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
