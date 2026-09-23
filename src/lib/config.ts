@@ -87,14 +87,12 @@ export const config = {
   },
 
   /**
-   * Wallet / paybill that receives customer money.
-   * In simulation mode this is purely informational.
+   * M-Pesa till (Buy Goods) that receives customer money. In simulation mode
+   * this is purely informational.
    */
-  merchant: {
-    name: env("MERCHANT_NAME") ?? "Farmer's Choice Market Ltd",
-    paybill: env("MERCHANT_PAYBILL") ?? "000000",
+  till: {
+    number: env("TILL_NUMBER") ?? "000000",
     accountPrefix: env("MERCHANT_ACCOUNT_PREFIX") ?? "FCM",
-    settlementBank: env("MERCHANT_SETTLEMENT_BANK") ?? "Equity Bank",
   },
 
   money: {

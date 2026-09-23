@@ -34,7 +34,7 @@ interface Financials {
 }
 
 interface Merchant {
-  paybill: string;
+  till: string;
   accountPrefix: string;
   name: string;
 }
@@ -220,7 +220,7 @@ function PaybillEditor({
   onSaved: (m: Merchant) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [paybill, setPaybill] = useState(merchant.paybill);
+  const [till, setTill] = useState(merchant.till);
   const [accountPrefix, setAccountPrefix] = useState(merchant.accountPrefix);
   const [name, setName] = useState(merchant.name);
 
@@ -270,8 +270,8 @@ function PaybillEditor({
     setBusy(true);
     setError(null);
     try {
-      const data = await post({ action: "verify", code, paybill, accountPrefix, name });
-      onSaved({ paybill, accountPrefix, name });
+      const data = await post({ action: "verify", code, till, accountPrefix, name });
+      onSaved({ till, accountPrefix, name });
       setNotice(data.message ?? "Updated.");
       setEditing(false);
       setCode("");
@@ -292,15 +292,15 @@ function PaybillEditor({
             <Building className="h-4 w-4 text-brand-600" /> M-Pesa receiving account
           </h2>
           <p className="mt-1 text-xs text-slate-400">
-            The paybill/till that receives customer payments. Changes need a one-time code from
-            your email.
+            The M-Pesa till (Buy Goods) that receives customer payments. Changes need a
+            one-time code from your email.
           </p>
         </div>
       </div>
 
       {!editing ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ReadField label="Paybill / till" value={merchant.paybill} />
+          <ReadField label="M-Pesa till number" value={merchant.till} />
           <ReadField label="Account prefix" value={merchant.accountPrefix} />
           <ReadField label="Merchant name" value={merchant.name} />
           <div className="sm:col-span-3">
@@ -316,11 +316,11 @@ function PaybillEditor({
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <Label>New paybill / till</Label>
+              <Label>New till number (Buy Goods)</Label>
               <Input
-                value={paybill}
-                onChange={(e) => setPaybill(e.target.value.replace(/\D/g, "").slice(0, 7))}
-                placeholder="e.g. 174379"
+                value={till}
+                onChange={(e) => setTill(e.target.value.replace(/\D/g, "").slice(0, 7))}
+                placeholder="e.g. 123456"
                 inputMode="numeric"
               />
             </div>
@@ -365,7 +365,7 @@ function PaybillEditor({
                   aria-label="5-digit code from your email"
                   autoComplete="one-time-code"
                 />
-                <Button onClick={verifyAndSave} disabled={busy || code.length !== 5 || !paybill}>
+                <Button onClick={verifyAndSave} disabled={busy || code.length !== 5 || till.length < 5}>
                   {busy ? <Spinner /> : <><ShieldCheck className="h-4 w-4" /> Verify & apply</>}
                 </Button>
               </div>

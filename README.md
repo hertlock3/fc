@@ -107,7 +107,8 @@ the Supabase **SQL Editor** and running it.
 2. [`supabase/migrations/20260921000000_couriers_messaging.sql`](supabase/migrations/20260921000000_couriers_messaging.sql) — courier role, chat
 3. [`supabase/migrations/20260922000000_stockists_tracking.sql`](supabase/migrations/20260922000000_stockists_tracking.sql) — stockists + GPS tracking
 4. [`supabase/migrations/20260923120000_partner_approval.sql`](supabase/migrations/20260923120000_partner_approval.sql) — partner approval gate (`profiles.approval_status`)
-5. [`supabase/migrations/20260924000001_admin_email_otp.sql`](supabase/migrations/20260924000001_admin_email_otp.sql) — emailed one-time codes for admin paybill changes
+5. [`supabase/migrations/20260924000001_admin_email_otp.sql`](supabase/migrations/20260924000001_admin_email_otp.sql) — emailed one-time codes for admin till changes
+6. [`supabase/migrations/20260924000002_till_only_and_service_fee_3.sql`](supabase/migrations/20260924000002_till_only_and_service_fee_3.sql) — till-only receiving account + historical orders restated to 3%
 6. [`supabase/seed.sql`](supabase/seed.sql) — categories, Farmer's Choice products, pricing settings
 
 The stockists migration seeds the principal Ruiru plant plus two example
@@ -229,11 +230,12 @@ Geocoding is proxied through `/api/geocode/*` server-side so a compliant
 `User-Agent` is sent and the public endpoints can be rate-limited. Set a real
 contact in `GEOCODE_USER_AGENT` before going live.
 
-### Admin email code for paybill changes
+### Admin email code for till changes
 
-Amending the M-Pesa receiving account requires a **one-time code emailed to
-the admin's account address** (delivered via [Resend](https://resend.com)).
-No authenticator app or secret enrollment is needed.
+Amending the M-Pesa receiving account (a **till number**, Buy Goods) requires a
+**one-time code emailed to the admin's account address** (delivered via
+[Resend](https://resend.com)). No authenticator app or secret enrollment is
+needed.
 
 Setup — add two variables to `.env.local` (or your Vercel project settings):
 
@@ -250,7 +252,7 @@ Flow, from **Admin → Finance → M-Pesa receiving account → Amend**:
    `admin_email_otp_codes` (a service-role-only table; the plain code is never
    persisted).
 2. Type the code from your inbox and click **Verify & apply**. A matching code
-   is consumed immediately, and the new receiving account is saved.
+   is consumed immediately, and the new till number is saved.
 
 Codes are valid for **10 minutes**, work exactly **once**, and issuing a new
 one invalidates the previous email. Brute force is capped by rate limits

@@ -1,16 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { config } from "./config";
 import { defaultPricingSettings, type PricingSettings } from "./pricing";
 
 export const SETTINGS_KEY_PRICING = "pricing";
 export const SETTINGS_KEY_MERCHANT = "merchant";
 
 /**
- * Merchant / M-Pesa receiving account. Defaults come from env; the DB row
- * (settings key "merchant") overrides them once an admin amends the paybill.
+ * M-Pesa receiving account — a TILL number (Buy Goods). Defaults come from
+ * env; the DB row (settings key "merchant") overrides them once an admin
+ * amends the account.
  */
 export interface MerchantSettings {
-  /** Paybill or till number that receives customer money. */
-  paybill: string;
+  /** M-Pesa till number (Buy Goods) that receives customer money. */
+  till: string;
   /** Prefix used in the M-Pesa account reference, e.g. FCM-FC-20260920-XXXX. */
   accountPrefix: string;
   /** Display name shown to customers on the payment step. */
@@ -19,7 +21,7 @@ export interface MerchantSettings {
 
 export function defaultMerchantSettings(): MerchantSettings {
   return {
-    paybill: "000000",
+    till: config.till.number,
     accountPrefix: "FCM",
     name: "Farmer's Choice Market Ltd",
   };
@@ -66,7 +68,7 @@ export async function loadPricingSettings(
 }
 
 /**
- * Load the merchant (paybill/till) settings, merging the DB override on top of
+ * Load the merchant (M-Pesa till) settings, merging the DB override on top of
  * the env-backed defaults. Never throws.
  */
 export async function loadMerchantSettings(
@@ -81,7 +83,7 @@ export async function loadMerchantSettings(
     return typeof v === "string" && v.trim().length > 0 ? v.trim() : defaults[key];
   };
   return {
-    paybill: str("paybill"),
+    till: str("till"),
     accountPrefix: str("accountPrefix"),
     name: str("name"),
   };

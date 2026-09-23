@@ -768,19 +768,19 @@ try {
   assert(Math.abs(sumParts - fin.data.totals.gross) <= fin.data.totals.orderCount * 2, "Breakdown legs sum to gross (±rounding)", `Legs ${sumParts} ≠ gross ${fin.data.totals.gross}`);
 
   const custPay = await api("/api/admin/paybill", { cookie: custCookie });
-  assert(custPay.status === 403, "Customer blocked from paybill settings (403)", `Expected 403, got ${custPay.status}`);
-  const paybillGet = await api("/api/admin/paybill", { cookie: adminCookie });
-  assert(paybillGet.status === 200 && /^\d{5,7}$/.test(paybillGet.data?.merchant?.paybill ?? ""), `Paybill settings readable (${paybillGet.data?.merchant?.paybill})`, `Paybill GET failed: ${JSON.stringify(paybillGet.data)}`);
+  assert(custPay.status === 403, "Customer blocked from till settings (403)", `Expected 403, got ${custPay.status}`);
+  const tillGet = await api("/api/admin/paybill", { cookie: adminCookie });
+  assert(tillGet.status === 200 && /^\d{5,7}$/.test(tillGet.data?.merchant?.till ?? ""), `Till settings readable (${tillGet.data?.merchant?.till})`, `Till GET failed: ${JSON.stringify(tillGet.data)}`);
 
   // OTP gate: a verify attempt with a bogus code must be rejected and must
-  // NOT change the stored paybill.
+  // NOT change the stored till.
   const badVerify = await api("/api/admin/paybill", {
     method: "POST", cookie: adminCookie,
-    body: { action: "verify", code: "000000", paybill: "999999" },
+    body: { action: "verify", code: "000000", till: "999999" },
   });
-  assert(badVerify.status === 401, "Paybill change with wrong OTP rejected (401)", `Expected 401, got ${badVerify.status}: ${JSON.stringify(badVerify.data)}`);
+  assert(badVerify.status === 401, "Till change with wrong OTP rejected (401)", `Expected 401, got ${badVerify.status}: ${JSON.stringify(badVerify.data)}`);
   const payAfter = await api("/api/admin/paybill", { cookie: adminCookie });
-  assert(payAfter.data?.merchant?.paybill === paybillGet.data.merchant.paybill, "Paybill unchanged after failed verification", "Paybill was mutated without valid OTP!");
+  assert(payAfter.data?.merchant?.till === tillGet.data.merchant.till, "Till unchanged after failed verification", "Till was mutated without valid OTP!");
 
   const unauthFin = await api("/api/admin/financials");
   assert(unauthFin.status === 401, "Unauthenticated financials → 401", `Expected 401, got ${unauthFin.status}`);

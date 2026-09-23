@@ -7,7 +7,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { config } from "@/lib/config";
 
 /**
- * M-Pesa paybill/till management — admin only, protected by an emailed
+ * M-Pesa till (Buy Goods) management — admin only, protected by an emailed
  * one-time code (see lib/email-otp.ts).
  *
  * GET   → current receiving-account settings
@@ -34,11 +34,7 @@ const changeSchema = z.object({
   /** Required for "verify" — the 5-digit code from the email. */
   code: z.string().trim().optional(),
   /** Required for "verify" — the pending new values. */
-  paybill: z
-    .string()
-    .trim()
-    .regex(/^\d{5,7}$/, "Paybill/till must be 5–7 digits")
-    .optional(),
+  till: z.string().trim().regex(/^\d{5,7}$/, "Enter your till number (5–7 digits)").optional(),
   accountPrefix: z.string().trim().min(1).max(8).optional(),
   name: z.string().trim().min(2).max(80).optional(),
 });
@@ -93,9 +89,9 @@ export async function POST(request: Request) {
   }
 
   // ---- verify: check the code, then apply the change ------------------------
-  const { code, paybill } = parsed.data;
-  if (!code || !paybill) {
-    return apiError("Enter the code from your email and the new paybill.", 422);
+  const { code, till } = parsed.data;
+  if (!code || !till) {
+    return apiError("Enter the code from your email and the new till number.", 422);
   }
 
   const limit = rateLimit(`otp-verify:${auth.user.id}`, VERIFY_ATTEMPTS, VERIFY_WINDOW_MS);
@@ -116,7 +112,7 @@ export async function POST(request: Request) {
   try {
     const current = await loadMerchantSettings(auth.supabase);
     await saveMerchantSettings(admin, {
-      paybill,
+      till,
       accountPrefix: parsed.data.accountPrefix ?? current.accountPrefix,
       name: parsed.data.name ?? current.name,
     });

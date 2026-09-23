@@ -168,7 +168,7 @@ export async function createOrderFromCart(params: {
   await admin.from("cart_items").delete().eq("user_id", params.userId);
 
   // 8. Initiate the M-Pesa charge -------------------------------------------
-  // Admin-amendable receiving account (paybill/till); env values are defaults.
+  // Admin-amendable receiving account (M-Pesa till); env values are defaults.
   const merchant = await loadMerchantSettings(admin);
   const provider = getMoneyProvider();
   let customerMessage =
