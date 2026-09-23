@@ -144,6 +144,15 @@ export const config = {
   },
 
   /**
+   * Transactional email (Resend) — delivers the admin's one-time code for
+   * sensitive actions such as changing the M-Pesa receiving account.
+   */
+  email: {
+    apiKey: env("RESEND_API_KEY"),
+    from: env("EMAIL_FROM") ?? "Farmer's Choice Market <onboarding@resend.dev>",
+  },
+
+  /**
    * Geocoding for the map pin picker. OpenStreetMap's Nominatim needs no key,
    * but its usage policy requires an identifying User-Agent. Requests are made
    * server-side (see /api/geocode/*) so we can set it.

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Building, CheckCircle2, KeyRound, PieChart, ShieldCheck } from "lucide-react";
-import { Alert, Badge, Button, Input, Label, Spinner } from "@/components/ui";
+import { BarChart3, Building, Mail, PieChart, ShieldCheck } from "lucide-react";
+import { Alert, Button, Input, Label, Spinner } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 
 /* ------------------------------------------------------------------ types -- */
@@ -39,17 +39,11 @@ interface Merchant {
   name: string;
 }
 
-interface TotpStatus {
-  enrolled: boolean;
-  pending: boolean;
-}
-
 /* ------------------------------------------------------------ main component */
 
 export function FinanceDashboard() {
   const [financials, setFinancials] = useState<Financials | null>(null);
   const [merchant, setMerchant] = useState<Merchant | null>(null);
-  const [totp, setTotp] = useState<TotpStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +60,6 @@ export function FinanceDashboard() {
       if (!merchRes.ok) throw new Error(merch?.error ?? "Could not load paybill settings.");
       setFinancials(fin);
       setMerchant(merch.merchant);
-      setTotp(merch.totp ?? { enrolled: false, pending: false });
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load.");
@@ -99,12 +92,7 @@ export function FinanceDashboard() {
       {financials && <MoneyFlow financials={financials} />}
 
       {merchant && (
-        <PaybillEditor
-          merchant={merchant}
-          totp={totp}
-          onSaved={(m) => setMerchant(m)}
-          onTotpChanged={(t) => setTotp(t)}
-        />
+        <PaybillEditor merchant={merchant} onSaved={(m) => setMerchant(m)} />
       )}
     </div>
   );
@@ -224,34 +212,24 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
 
 /* ---------------------------------------------------------- paybill editor -- */
 
-interface Enrollment {
-  otpauthUri: string;
-  secret: string;
-}
-
 function PaybillEditor({
   merchant,
-  totp,
   onSaved,
-  onTotpChanged,
 }: {
   merchant: Merchant;
-  totp: TotpStatus | null;
   onSaved: (m: Merchant) => void;
-  onTotpChanged: (t: TotpStatus) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [paybill, setPaybill] = useState(merchant.paybill);
   const [accountPrefix, setAccountPrefix] = useState(merchant.accountPrefix);
   const [name, setName] = useState(merchant.name);
 
-  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [code, setCode] = useState("");
+  const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
+  const [codeExpiresAt, setCodeExpiresAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  const enrolled = totp?.enrolled ?? false;
 
   async function post(payload: Record<string, unknown>) {
     const res = await fetch("/api/admin/paybill", {
@@ -272,38 +250,20 @@ function PaybillEditor({
     return data;
   }
 
-  async function startEnrollment() {
+  async function sendCode() {
     setBusy(true);
     setError(null);
     try {
-      const data = await post({ action: "enroll" });
-      setEnrollment({ otpauthUri: data.otpauthUri, secret: data.secret });
+      const data = await post({ action: "send-code" });
+      setCodeSentTo(data.emailedTo ?? "your email");
+      setCodeExpiresAt(data.expiresAt ? new Date(data.expiresAt).getTime() : null);
+      setCode("");
       setNotice(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start enrollment.");
+      setError(err instanceof Error ? err.message : "Could not send the code.");
     } finally {
       setBusy(false);
     }
-  }
-
-  async function confirmEnrollment() {
-    setBusy(true);
-    setError(null);
-    try {
-      const data = await post({ action: "confirm", code });
-      setTotpChanged({ enrolled: true, pending: false });
-      setEnrollment(null);
-      setCode("");
-      setNotice(data.message ?? "Authenticator confirmed.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Verification failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function setTotpChanged(t: TotpStatus) {
-    onTotpChanged(t);
   }
 
   async function verifyAndSave() {
@@ -314,8 +274,9 @@ function PaybillEditor({
       onSaved({ paybill, accountPrefix, name });
       setNotice(data.message ?? "Updated.");
       setEditing(false);
-      setEnrollment(null);
       setCode("");
+      setCodeSentTo(null);
+      setCodeExpiresAt(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed.");
     } finally {
@@ -331,12 +292,10 @@ function PaybillEditor({
             <Building className="h-4 w-4 text-brand-600" /> M-Pesa receiving account
           </h2>
           <p className="mt-1 text-xs text-slate-400">
-            The paybill/till that receives customer payments. Changes need your authenticator code.
+            The paybill/till that receives customer payments. Changes need a one-time code from
+            your email.
           </p>
         </div>
-        <Badge tone={enrolled ? "success" : "warning"}>
-          {enrolled ? "Authenticator active" : "Authenticator not set up"}
-        </Badge>
       </div>
 
       {!editing ? (
@@ -375,80 +334,65 @@ function PaybillEditor({
             </div>
           </div>
 
-          {/* ---- one-time authenticator setup ---- */}
-          {!enrolled && !enrollment && (
-            <div className="rounded-xl border border-accent-200 bg-accent-50 p-4">
-              <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                <KeyRound className="h-4 w-4 text-accent-600" /> First time here — set up your authenticator
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Changes are protected by a TOTP authenticator (totp-cli, Google Authenticator,
-                Aegis, 1Password…). Generate your secret, add it to the app, then confirm with a
-                code — one time only.
-              </p>
-              <Button className="mt-3" size="sm" onClick={startEnrollment} disabled={busy}>
-                {busy ? <Spinner /> : <><KeyRound className="h-4 w-4" /> Generate my secret</>}
+          {/* ---- step 1: email a one-time code ---- */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                  <Mail className="h-4 w-4 text-brand-600" /> 1. Get a verification code
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {codeSentTo
+                    ? `Code sent to ${codeSentTo}. It works once and expires in 10 minutes.`
+                    : "We'll email a 5-digit code to your account's email address. Already requested one? Just enter it below."}
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={sendCode} disabled={busy}>
+                {busy ? <Spinner /> : <><Mail className="h-4 w-4" /> {codeSentTo ? "Resend code" : "Email me a code"}</>}
               </Button>
             </div>
-          )}
 
-          {enrollment && (
-            <div className="rounded-xl border border-brand-200 bg-brand-50 p-4">
-              <p className="text-sm font-medium text-slate-900">Add this secret to your authenticator app</p>
-              <p className="mt-1 text-xs text-slate-500">
-                Paste the secret into totp-cli (<code>totp-cli import</code>), or scan the
-                otpauth URI with your app:
-              </p>
-              <code className="mt-2 block max-w-full overflow-x-auto rounded-lg bg-white px-3 py-2 text-xs text-slate-800 ring-1 ring-slate-200">
-                {enrollment.otpauthUri}
-              </code>
-              <p className="mt-2 break-all text-xs text-slate-500">
-                Secret: <span className="font-mono font-semibold text-slate-700">{enrollment.secret}</span>
-              </p>
-              <div className="mt-3 flex gap-2">
-                <Input
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="••••••"
-                  inputMode="numeric"
-                  className="max-w-40 tracking-[0.5em]"
-                  aria-label="6-digit code from your authenticator"
-                />
-                <Button onClick={confirmEnrollment} disabled={busy || code.length !== 6}>
-                  {busy ? <Spinner /> : <><CheckCircle2 className="h-4 w-4" /> Confirm</>}
-                </Button>
-              </div>
-              <p className="mt-2 text-xs text-slate-400">
-                Codes rotate every 30 s — type the one currently shown in your app.
-              </p>
-            </div>
-          )}
-
-          {/* ---- verification for the actual change ---- */}
-          {enrolled && !enrollment && (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <Label>Code from your authenticator</Label>
+            {/* ---- step 2: verify & apply ---- */}
+            <div className="mt-4">
+              <Label>2. Enter the code from your email</Label>
               <div className="flex gap-2">
                 <Input
                   value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="••••••"
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                  placeholder="•••••"
                   inputMode="numeric"
                   className="max-w-40 tracking-[0.5em]"
-                  aria-label="6-digit code from your authenticator"
+                  aria-label="5-digit code from your email"
+                  autoComplete="one-time-code"
                 />
-                <Button onClick={verifyAndSave} disabled={busy || code.length !== 6 || !paybill}>
+                <Button onClick={verifyAndSave} disabled={busy || code.length !== 5 || !paybill}>
                   {busy ? <Spinner /> : <><ShieldCheck className="h-4 w-4" /> Verify & apply</>}
                 </Button>
               </div>
-              <p className="mt-2 text-xs text-slate-400">
-                Each code works once and expires with its 30-second window.
-              </p>
+              {codeSentTo && codeExpiresAt && (
+                <p className="mt-2 text-xs text-slate-400">
+                  Code expires at{" "}
+                  {new Date(codeExpiresAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  .
+                </p>
+              )}
             </div>
-          )}
+          </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => { setEditing(false); setEnrollment(null); setCode(""); setError(null); }}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setEditing(false);
+                setCode("");
+                setCodeSentTo(null);
+                setCodeExpiresAt(null);
+                setError(null);
+              }}
+            >
               Cancel
             </Button>
           </div>

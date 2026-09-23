@@ -107,7 +107,8 @@ the Supabase **SQL Editor** and running it.
 2. [`supabase/migrations/20260921000000_couriers_messaging.sql`](supabase/migrations/20260921000000_couriers_messaging.sql) — courier role, chat
 3. [`supabase/migrations/20260922000000_stockists_tracking.sql`](supabase/migrations/20260922000000_stockists_tracking.sql) — stockists + GPS tracking
 4. [`supabase/migrations/20260923120000_partner_approval.sql`](supabase/migrations/20260923120000_partner_approval.sql) — partner approval gate (`profiles.approval_status`)
-5. [`supabase/seed.sql`](supabase/seed.sql) — categories, Farmer's Choice products, pricing settings
+5. [`supabase/migrations/20260924000001_admin_email_otp.sql`](supabase/migrations/20260924000001_admin_email_otp.sql) — emailed one-time codes for admin paybill changes
+6. [`supabase/seed.sql`](supabase/seed.sql) — categories, Farmer's Choice products, pricing settings
 
 The stockists migration seeds the principal Ruiru plant plus two example
 stockists so nearest-location routing works immediately.
@@ -228,33 +229,32 @@ Geocoding is proxied through `/api/geocode/*` server-side so a compliant
 `User-Agent` is sent and the public endpoints can be rate-limited. Set a real
 contact in `GEOCODE_USER_AGENT` before going live.
 
-### Admin authenticator (TOTP) for paybill changes
+### Admin email code for paybill changes
 
-Amending the M-Pesa receiving account requires a **TOTP code** (RFC 6238 —
-the same standard as [totp-cli](https://github.com/yitsushi/totp-cli), Google
-Authenticator, Aegis, 1Password…). Nothing is emailed at verification time,
-so there is no email delivery to fail.
+Amending the M-Pesa receiving account requires a **one-time code emailed to
+the admin's account address** (delivered via [Resend](https://resend.com)).
+No authenticator app or secret enrollment is needed.
 
-One-time setup, from **Admin → Finance → M-Pesa receiving account → Amend**:
+Setup — add two variables to `.env.local` (or your Vercel project settings):
 
-1. Click **Generate my secret** — the server creates a random 20-byte secret
-   (stored in `admin_totp_secrets`, a service-role-only table) and shows an
-   `otpauth://totp/…` URI.
-2. Add it to your authenticator app — paste the secret into totp-cli
-   (`totp-cli import`) or scan/paste the URI into any TOTP app.
-3. Type the code your app shows and click **Confirm**. Enrollment is now
-   active for your account.
+- `RESEND_API_KEY` — from the [Resend dashboard → API Keys](https://resend.com/api-keys)
+- `EMAIL_FROM` *(optional)* — sender identity. With a verified domain on Resend,
+  e.g. `"Farmer's Choice <noreply@farmerschoice.co.ke>"`. Without one, the
+  default shared test sender `onboarding@resend.dev` works for development, but
+  only delivers to your own Resend account address.
 
-Every paybill change then asks for a fresh code. Codes rotate every 30 s,
-tolerate ±1 window of clock drift and are **single-use** (the consumed
-time-step is stored server-side, so a captured code cannot be replayed).
-Re-enrolling (e.g. new phone) simply rotates the secret; 6 wrong attempts
-per 5 minutes trigger a lockout.
+Flow, from **Admin → Finance → M-Pesa receiving account → Amend**:
 
-> Previously this used Supabase Auth's email OTP. That was dropped because
-> hosted Supabase refuses auth emails to non-team addresses without custom
-> SMTP, and even with SMTP configured codes arrived unreliably (spam
-> folders, magic links instead of digits).
+1. Click **Email me a code** — the server generates a crypto-random 5-digit
+   code, emails it, and stores only its SHA-256 hash in
+   `admin_email_otp_codes` (a service-role-only table; the plain code is never
+   persisted).
+2. Type the code from your inbox and click **Verify & apply**. A matching code
+   is consumed immediately, and the new receiving account is saved.
+
+Codes are valid for **10 minutes**, work exactly **once**, and issuing a new
+one invalidates the previous email. Brute force is capped by rate limits
+(3 emails / 5 min and 5 guesses / 5 min per admin).
 
 ---
 
