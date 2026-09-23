@@ -3,8 +3,8 @@
  * End-to-end smoke test for Farmer's Choice Market.
  *
  * Drives the REAL flow over HTTP against a running dev server:
- *   signup → cart → address → quote → checkout (sim M-Pesa) →
- *   simulate payment → admin approve → dispatch → delivered,
+ *   signup → cart → address → quote → checkout (sim M-Pesa STK) →
+ *   payment status poll (sim auto-confirms) → admin approve → dispatch → delivered,
  * plus the partner flows: stockist registration → admin verification →
  * stockist dashboard, and courier assignment → chat → GPS trip progression.
  *
@@ -325,6 +325,43 @@ try {
   const expectedFee = Math.round((q.subtotal_cents + q.delivery_fee_cents) * (health.data.serviceFeePercent / 100));
   assert(q.service_fee_cents === expectedFee, "Service fee = expected % of (goods + delivery)", `Service fee ${q.service_fee_cents} ≠ expected ${expectedFee}`);
 
+  /**
+   * Poll the order's payment-status endpoint until it reaches the wanted
+   * state (sim provider auto-confirms on the first poll; daraja would go
+   * through the real STK query API). Returns the final payload or null.
+   */
+  async function waitForPayment(orderId, cookie, { want = "paid", tries = 15 } = {}) {
+    for (let i = 0; i < tries; i++) {
+      const res = await api(`/api/orders/${orderId}/payment-status`, { cookie });
+      if (res.status === 200 && res.data?.payment_status === want) return res.data;
+      await sleep(1000);
+    }
+    return null;
+  }
+
+  /**
+   * Send a payload shaped exactly like Safaricom's STK callback webhook.
+   * Used to prove the webhook path (and its idempotency guard) directly.
+   */
+  async function sendMpesaCallback({ checkoutRequestId, success = true, receipt, amount }) {
+    return fetch(`${BASE_URL}/api/payments/mpesa/callback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        Body: {
+          stkCallback: {
+            CheckoutRequestID: checkoutRequestId,
+            ResultCode: success ? 0 : 1,
+            ResultDesc: success ? "The service request is processed successfully." : "Request cancelled by user",
+            ...(success
+              ? { CallbackMetadata: { Item: [{ Name: "Amount", Value: amount }, { Name: "MpesaReceiptNumber", Value: receipt }] } }
+              : {}),
+          },
+        },
+      }),
+    });
+  }
+
   section("5. Checkout");
   const checkout = await api("/api/checkout", {
     method: "POST",
@@ -348,28 +385,32 @@ try {
   assert(cartAfter.data?.count === 0, "Cart consumed by checkout", `Cart not cleared (count=${cartAfter.data?.count})`);
 
   section("6. Security gates");
-  const unauthSim = await api("/api/dev/simulate-payment", { method: "POST", body: { orderId } });
-  assert(unauthSim.status === 401, "Unauthenticated simulate-payment → 401", `Expected 401, got ${unauthSim.status}`);
+  const unauthStatus = await api(`/api/orders/${orderId}/payment-status`);
+  assert(unauthStatus.status === 401, "Unauthenticated payment-status poll → 401", `Expected 401, got ${unauthStatus.status}`);
+  const unauthRetry = await api(`/api/orders/${orderId}/retry-payment`, { method: "POST", body: {} });
+  assert(unauthRetry.status === 401, "Unauthenticated retry-payment → 401", `Expected 401, got ${unauthRetry.status}`);
+  const unknownCallback = await sendMpesaCallback({ checkoutRequestId: "CO-UNKNOWN-REF", success: true, receipt: "FAKE123", amount: 999 });
+  assert(unknownCallback.status === 200, "Callback for an unknown reference acknowledged (no crash)", `Callback → ${unknownCallback.status}`);
+  assert((await rest("orders", `id=eq.${orderId}&select=payment_status`))?.[0]?.payment_status !== "paid", "Unknown-reference callback does not touch the order", "Unknown reference mutated the order");
 
-  section("7. Simulated payment (stands in for the M-Pesa PIN)");
-  const pay = await api("/api/dev/simulate-payment", {
-    method: "POST",
-    cookie: custCookie,
-    body: { orderId, outcome: "success" },
-  });
-  assert(pay.status === 200 && pay.data?.status === "paid", "Payment finalised → paid", `Simulate payment failed: ${JSON.stringify(pay.data)}`);
+  section("7. Payment — live status poll (sim auto-confirms, stands in for the M-Pesa PIN)");
+  const pay = await waitForPayment(orderId, custCookie);
+  assert(Boolean(pay), "Payment finalised → paid via live status poll", "Payment never confirmed via polling");
 
   const paidRow = (await rest("orders", `id=eq.${orderId}&select=status,payment_status,mpesa_receipt,paid_at`))?.[0];
   assert(paidRow?.status === "awaiting_vendor_approval" && paidRow?.payment_status === "paid", "Order awaiting_vendor_approval / paid", `Unexpected state: ${JSON.stringify(paidRow)}`);
   assert(typeof paidRow?.mpesa_receipt === "string" && paidRow.mpesa_receipt.startsWith("SIM"), `M-Pesa receipt recorded (${paidRow?.mpesa_receipt})`, "Receipt missing");
   assert((await rest("invoices", `order_id=eq.${orderId}&select=kind,status`))?.length === 2, "Vendor payout invoice generated on payment", "Vendor invoice missing");
 
-  const payAgain = await api("/api/dev/simulate-payment", {
-    method: "POST",
-    cookie: custCookie,
-    body: { orderId, outcome: "success" },
-  });
-  assert(payAgain.data?.status === "already_finalised", "Duplicate payment callback ignored (idempotent)", `Replay returned ${JSON.stringify(payAgain.data)}`);
+  // Webhook replay AFTER finalisation must not overwrite the paid order.
+  const payRef = (await rest("payments", `order_id=eq.${orderId}&order=created_at.asc&select=checkout_request_id,provider`))
+    ?.filter((p) => p.provider === "sim")
+    ?.at(-1)?.checkout_request_id;
+  assert(typeof payRef === "string" && payRef.startsWith("SIM-CO-"), `Payment row carries the provider reference (${payRef})`, "payments.checkout_request_id missing");
+  const replay = await sendMpesaCallback({ checkoutRequestId: payRef, success: true, receipt: "FORGED99", amount: 999999 });
+  assert(replay.status === 200, "Replayed Safaricom callback acknowledged", `Replay callback → ${replay.status}`);
+  const afterReplay = (await rest("orders", `id=eq.${orderId}&select=mpesa_receipt`))?.[0];
+  assert(afterReplay?.mpesa_receipt === paidRow.mpesa_receipt, "Replayed callback ignored (idempotent — receipt unchanged)", `Receipt changed to ${afterReplay?.mpesa_receipt}`);
 
   section("8. Admin gate & fulfilment");
   const forbidden = await api("/api/admin/orders", { method: "POST", cookie: custCookie, body: { orderId, action: "approve" } });
@@ -534,13 +575,19 @@ try {
   const strangerCookie = cookieHeaderValue(strangerSession);
   ok(`Courier + stranger accounts ready`);
 
+  // A signed-in NON-owner must not be able to trigger payment retries.
+  const foreignRetry = await api(`/api/orders/${orderId}/retry-payment`, { method: "POST", cookie: strangerCookie, body: {} });
+  // 404 is equally correct: RLS hides the order from a non-owner entirely.
+  assert([403, 404].includes(foreignRetry.status), "Retry-payment blocked for a non-owner (403/404)", `Expected 403/404, got ${foreignRetry.status}`);
+
   // Fresh order so the courier actually has a live trip.
   await api("/api/cart", { method: "POST", body: { productId: product.id, quantity: 1 }, cookie: custCookie });
   const checkout2 = await api("/api/checkout", { method: "POST", cookie: custCookie, body: { addressId } });
   assert(checkout2.status === 201, `Second order ${checkout2.data?.orderNumber ?? "?"} created`, `Second checkout failed: ${JSON.stringify(checkout2.data)}`);
   const orderId2 = checkout2.data.orderId;
   created.orderId2 = orderId2;
-  await api("/api/dev/simulate-payment", { method: "POST", cookie: custCookie, body: { orderId: orderId2, outcome: "success" } });
+  const paid2 = await waitForPayment(orderId2, custCookie);
+  assert(Boolean(paid2), "Second order paid via live status poll", "Order 2 payment never confirmed");
   await api("/api/admin/orders", { method: "POST", cookie: adminCookie, body: { orderId: orderId2, action: "approve" } });
   await api("/api/admin/orders", { method: "POST", cookie: adminCookie, body: { orderId: orderId2, action: "dispatch" } });
 

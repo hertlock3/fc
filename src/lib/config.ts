@@ -107,7 +107,7 @@ export const config = {
         env("MPESA_PASSKEY") ??
         (mpesaEnvironment === "sandbox" ? MPESA_SANDBOX_PASSKEY : undefined),
       transactionType:
-        (env("MPESA_TRANSACTION_TYPE") ?? "CustomerPayBillOnline") as
+        (env("MPESA_TRANSACTION_TYPE") ?? "CustomerBuyGoodsOnline") as
           | "CustomerPayBillOnline"
           | "CustomerBuyGoodsOnline",
       /** Shared secret appended to the callback URL to verify authenticity. */

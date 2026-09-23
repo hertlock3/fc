@@ -124,11 +124,6 @@ export const categoryUpdateSchema = z.object({
   sortOrder: categorySortOrder.optional(),
 });
 
-export const simulatePaymentSchema = z.object({
-  orderId: z.string().uuid(),
-  outcome: z.enum(["success", "failed", "cancelled"]).default("success"),
-});
-
 export const dispatchSchema = z.object({
   orderId: z.string().uuid(),
 });

@@ -2,8 +2,9 @@
  * Money provider abstraction.
  *
  * A single interface (`MoneyProvider`) is implemented by:
- *   - `SimMoneyProvider`   — default, no credentials. Creates a pending charge
- *                            that is finalised via the simulation endpoint.
+ *   - `SimMoneyProvider`   — default, no credentials. Charges auto-confirm
+ *                            when the order page polls for status, so the
+ *                            whole checkout flow works in demos/CI.
  *   - `DarajaMoneyProvider` — live Safaricom Daraja STK Push (Lipa na M-Pesa).
  *
  * Switch with `MONEY_PROVIDER=sim|daraja`.
@@ -19,6 +20,8 @@ export interface ChargeRequest {
   orderNumber: string;
   amountCents: number;
   phone: string; // 2547XXXXXXXX
+  /** M-Pesa till number (Buy Goods) that receives the money — from merchant settings. */
+  tillNumber: string;
   accountReference: string;
   description: string;
   callbackUrl: string;
@@ -45,7 +48,11 @@ export interface ChargeStatus {
 export interface MoneyProvider {
   name: MoneyProviderName;
   initiateCharge(req: ChargeRequest): Promise<ChargeResult>;
-  queryStatus(checkoutRequestId: string): Promise<ChargeStatus>;
+  /**
+   * `tillNumber` is the shortcode the original push was sent to (Buy Goods
+   * flow) — Daraja's query API requires it to match.
+   */
+  queryStatus(checkoutRequestId: string, tillNumber?: string): Promise<ChargeStatus>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -53,9 +60,16 @@ export interface MoneyProvider {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Deterministic, credential-free provider used for local development and
- * demos. It returns a `processing` charge; the payment is completed by the
- * `/api/dev/simulate-payment` endpoint (clearly gated to non-production).
+ * Deterministic, credential-free provider used for local development, demos
+ * and CI. A charge is confirmed the moment the order page polls for status —
+ * the checkout → payment → order lifecycle runs end-to-end with no human
+ * input and no dev-only endpoints.
+ *
+ * The provider is deliberately STATELESS: route handlers in Next.js each get
+ * their own module instance, so no in-memory map would be shared between the
+ * checkout and the polling route. Confirmation is derived purely from the
+ * checkout reference (`SIM-CO-…` ⇒ paid) with a deterministic receipt, which
+ * survives server restarts and multi-instance deployments.
  */
 export class SimMoneyProvider implements MoneyProvider {
   name: MoneyProviderName = "sim";
@@ -68,7 +82,7 @@ export class SimMoneyProvider implements MoneyProvider {
       merchantRequestId,
       checkoutRequestId,
       customerMessage:
-        "Simulation mode: an STK push would appear on the customer's phone. Use the simulate button to complete it.",
+        "Demo payment started — it will confirm automatically in a few seconds.",
       raw: {
         simulated: true,
         request: {
@@ -81,15 +95,23 @@ export class SimMoneyProvider implements MoneyProvider {
   }
 
   async queryStatus(checkoutRequestId: string): Promise<ChargeStatus> {
+    // A stable receipt so the order page shows the same number on every poll.
+    const receipt = simReceiptFor(checkoutRequestId);
     return {
-      status: "processing",
-      resultCode: null,
-      resultDesc: "Simulation mode does not track live status.",
-      receipt: null,
+      status: "paid",
+      resultCode: 0,
+      resultDesc: "Simulated payment accepted.",
+      receipt,
       amountCents: null,
       raw: { checkoutRequestId, simulated: true },
     };
   }
+}
+
+/** Deterministic M-Pesa-style receipt for a simulated checkout reference. */
+function simReceiptFor(checkoutRequestId: string): string {
+  const hash = Buffer.from(checkoutRequestId).toString("base64url").toUpperCase();
+  return `SIM${hash.replace(/[^A-Z0-9]/g, "").slice(0, 9)}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -111,11 +133,16 @@ export class DarajaMoneyProvider implements MoneyProvider {
       : "https://sandbox.safaricom.co.ke";
   }
 
-  private assertConfigured() {
-    const { consumerKey, consumerSecret, shortcode, passkey } = config.money.mpesa;
-    if (!consumerKey || !consumerSecret || !shortcode || !passkey) {
+  private assertConfigured(receiver?: string) {
+    const { consumerKey, consumerSecret, passkey } = config.money.mpesa;
+    if (!consumerKey || !consumerSecret || !passkey) {
       throw new Error(
-        "Daraja is not fully configured. Set MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_SHORTCODE and MPESA_PASSKEY."
+        "Daraja is not fully configured. Set MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET and MPESA_PASSKEY."
+      );
+    }
+    if (receiver !== undefined && !receiver) {
+      throw new Error(
+        "No receiving till is configured. Set the M-Pesa till number (Admin → Finance, or TILL_NUMBER)."
       );
     }
   }
@@ -145,8 +172,8 @@ export class DarajaMoneyProvider implements MoneyProvider {
     return data.access_token;
   }
 
-  private buildPassword(): { password: string; timestamp: string } {
-    const { shortcode, passkey } = config.money.mpesa;
+  private buildPassword(shortcode: string): { password: string; timestamp: string } {
+    const { passkey } = config.money.mpesa;
     const timestamp = new Date()
       .toISOString()
       .replace(/[-:TZ.]/g, "")
@@ -159,17 +186,22 @@ export class DarajaMoneyProvider implements MoneyProvider {
 
   async initiateCharge(req: ChargeRequest): Promise<ChargeResult> {
     const token = await this.getAccessToken();
-    const { shortcode, transactionType } = config.money.mpesa;
-    const { password, timestamp } = this.buildPassword();
+    const { transactionType } = config.money.mpesa;
+    // Till (Buy Goods) flow: the till number IS the business shortcode and the
+    // receiving account (PartyB). Paybill flow keeps the legacy shortcode.
+    const receiver =
+      transactionType === "CustomerBuyGoodsOnline" ? req.tillNumber : config.money.mpesa.shortcode;
+    this.assertConfigured(receiver);
+    const { password, timestamp } = this.buildPassword(receiver);
 
     const body = {
-      BusinessShortCode: shortcode,
+      BusinessShortCode: receiver,
       Password: password,
       Timestamp: timestamp,
       TransactionType: transactionType,
       Amount: Math.round(req.amountCents / 100),
       PartyA: req.phone,
-      PartyB: shortcode,
+      PartyB: receiver,
       PhoneNumber: req.phone,
       CallBackURL: req.callbackUrl,
       AccountReference: req.accountReference,
@@ -209,10 +241,14 @@ export class DarajaMoneyProvider implements MoneyProvider {
     };
   }
 
-  async queryStatus(checkoutRequestId: string): Promise<ChargeStatus> {
+  async queryStatus(checkoutRequestId: string, tillNumber?: string): Promise<ChargeStatus> {
     const token = await this.getAccessToken();
-    const { shortcode } = config.money.mpesa;
-    const { password, timestamp } = this.buildPassword();
+    const { transactionType } = config.money.mpesa;
+    const receiver =
+      transactionType === "CustomerBuyGoodsOnline"
+        ? tillNumber ?? config.till.number
+        : config.money.mpesa.shortcode;
+    const { password, timestamp } = this.buildPassword(receiver);
 
     const res = await fetch(`${this.baseUrl}/mpesa/stkpushquery/v1/query`, {
       method: "POST",
@@ -221,7 +257,7 @@ export class DarajaMoneyProvider implements MoneyProvider {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        BusinessShortCode: shortcode,
+        BusinessShortCode: receiver,
         Password: password,
         Timestamp: timestamp,
         CheckoutRequestID: checkoutRequestId,

@@ -23,6 +23,100 @@ export interface CreateOrderResult {
 }
 
 /**
+ * Kick off the M-Pesa charge for an order and persist its lifecycle in
+ * `payments` / `orders`. Used by checkout and by retry-payment so both paths
+ * behave identically.
+ *
+ * The caller must have verified the order exists and is payable (status
+ * `pending_payment`, payment not already finalised).
+ */
+export async function initiateOrderCharge(params: {
+  admin: SupabaseClient;
+  order: {
+    id: string;
+    order_number: string;
+    total_cents: number;
+  };
+  /** E.164 MSISDN (2547XXXXXXXX) from the profile or an explicit override. */
+  phone: string;
+}): Promise<{ customerMessage: string }> {
+  const { admin, order, phone } = params;
+
+  // Admin-amendable receiving account (M-Pesa till); env values are defaults.
+  const merchant = await loadMerchantSettings(admin);
+  const provider = getMoneyProvider();
+  let customerMessage =
+    "We sent a payment request to your phone. Enter your M-Pesa PIN to confirm.";
+
+  const { data: paymentRow } = await admin
+    .from("payments")
+    .insert({
+      order_id: order.id,
+      provider: provider.name,
+      amount_cents: order.total_cents,
+      phone,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  try {
+    const charge = await provider.initiateCharge({
+      orderId: order.id,
+      orderNumber: order.order_number,
+      amountCents: order.total_cents,
+      phone,
+      tillNumber: merchant.till,
+      accountReference: `${merchant.accountPrefix}-${order.order_number}`.slice(0, 12),
+      description: `Farmer's Choice order ${order.order_number}`.slice(0, 40),
+      callbackUrl: buildCallbackUrl(),
+    });
+
+    await admin
+      .from("payments")
+      .update({
+        status: "processing",
+        merchant_request_id: charge.merchantRequestId,
+        checkout_request_id: charge.checkoutRequestId,
+        raw: charge.raw,
+      })
+      .eq("id", paymentRow?.id ?? "");
+
+    await admin
+      .from("orders")
+      .update({
+        payment_status: "processing",
+        payment_ref: charge.checkoutRequestId,
+      })
+      .eq("id", order.id);
+
+    await logOrderEvent(
+      admin,
+      order.id,
+      "payment_initiated",
+      "M-Pesa payment request sent to the customer's phone.",
+      "system",
+      { checkout_request_id: charge.checkoutRequestId }
+    );
+    customerMessage = charge.customerMessage;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Payment could not be started.";
+    await admin
+      .from("payments")
+      .update({ status: "failed", result_desc: message })
+      .eq("id", paymentRow?.id ?? "");
+    await admin
+      .from("orders")
+      .update({ payment_status: "failed" })
+      .eq("id", order.id);
+    await logOrderEvent(admin, order.id, "payment_error", message, "system");
+    throw new Error(message);
+  }
+
+  return { customerMessage };
+}
+
+/**
  * Turn the signed-in user's cart into an order, generate the customer invoice,
  * and kick off the M-Pesa charge. Server-authoritative: every price and fee is
  * recomputed here — nothing from the client is trusted.
@@ -168,75 +262,15 @@ export async function createOrderFromCart(params: {
   await admin.from("cart_items").delete().eq("user_id", params.userId);
 
   // 8. Initiate the M-Pesa charge -------------------------------------------
-  // Admin-amendable receiving account (M-Pesa till); env values are defaults.
-  const merchant = await loadMerchantSettings(admin);
-  const provider = getMoneyProvider();
-  let customerMessage =
-    "We sent a payment request to your phone. Enter your M-Pesa PIN to confirm.";
-
-  const { data: paymentRow } = await admin
-    .from("payments")
-    .insert({
-      order_id: order.id,
-      provider: provider.name,
-      amount_cents: quote.total_cents,
-      phone,
-      status: "pending",
-    })
-    .select("id")
-    .single();
-
-  try {
-    const charge = await provider.initiateCharge({
-      orderId: order.id,
-      orderNumber,
-      amountCents: quote.total_cents,
-      phone,
-      accountReference: `${merchant.accountPrefix}-${orderNumber}`.slice(0, 12),
-      description: `Farmer's Choice order ${orderNumber}`.slice(0, 40),
-      callbackUrl: buildCallbackUrl(),
-    });
-
-    await admin
-      .from("payments")
-      .update({
-        status: "processing",
-        merchant_request_id: charge.merchantRequestId,
-        checkout_request_id: charge.checkoutRequestId,
-        raw: charge.raw,
-      })
-      .eq("id", paymentRow?.id ?? "");
-
-    await admin
-      .from("orders")
-      .update({
-        payment_status: "processing",
-        payment_ref: charge.checkoutRequestId,
-      })
-      .eq("id", order.id);
-
-    await logOrderEvent(
-      admin,
-      order.id,
-      "payment_initiated",
-      "M-Pesa payment request sent to the customer's phone.",
-      "system",
-      { checkout_request_id: charge.checkoutRequestId }
-    );
-    customerMessage = charge.customerMessage;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Payment could not be started.";
-    await admin
-      .from("payments")
-      .update({ status: "failed", result_desc: message })
-      .eq("id", paymentRow?.id ?? "");
-    await admin
-      .from("orders")
-      .update({ payment_status: "failed" })
-      .eq("id", order.id);
-    await logOrderEvent(admin, order.id, "payment_error", message, "system");
-    throw new Error(message);
-  }
+  const { customerMessage } = await initiateOrderCharge({
+    admin,
+    order: {
+      id: order.id,
+      order_number: order.order_number,
+      total_cents: order.total_cents,
+    },
+    phone,
+  });
 
   return {
     orderId: order.id,

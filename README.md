@@ -180,7 +180,7 @@ in sandbox you only need a Consumer Key/Secret:
    `MPESA_PASSKEY`, apply for **Go-Live** and update `APP_URL`.
 
 > Prefer to try the flow without credentials? Leave `MONEY_PROVIDER=sim` (the
-> default) and use the "Simulate payment" controls on the order page.
+> default) — payments confirm automatically a few seconds after checkout.
 
 ### Delivery (courier)
 
@@ -272,9 +272,9 @@ one invalidates the previous email. Brute force is capped by rate limits
   and the 3% service fee — are recomputed on the server at checkout. Nothing
   from the browser is trusted.
 - **Payment callbacks** are validated with a shared secret and processed
-  idempotently (duplicate callbacks are ignored).
-- **The simulation endpoint** is hard-disabled in production and whenever a live
-  money provider is configured.
+  idempotently (duplicate callbacks are ignored). The order page additionally
+  polls Daraja's query API, so payment confirmation never depends on the
+  webhook alone.
 - **STK push** means the customer enters their M-Pesa PIN on their phone; the PIN
   is never collected or stored by the app.
 
@@ -337,8 +337,8 @@ src/test/setup.ts            Vitest setup (jest-dom matchers)
 
 **Do I need Bolt/Uber keys to try this?** No — leave `DELIVERY_PROVIDER=sim`.
 
-**Do I need M-Pesa keys to try this?** No — leave `MONEY_PROVIDER=sim` and use the
-"Simulate payment" controls on the order page.
+**Do I need M-Pesa keys to try this?** No — leave `MONEY_PROVIDER=sim`; payments
+auto-confirm a few seconds after checkout.
 
 **Do I need a maps or geocoding key?** No — the pin picker uses Leaflet +
 OpenStreetMap and Nominatim, all key-free.
