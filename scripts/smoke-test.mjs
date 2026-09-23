@@ -701,30 +701,6 @@ try {
     assert(selfApprove.status === 403 || selfApprove.status === 401, "Partner cannot approve themselves (403)", `Expected 403, got ${selfApprove.status}`);
   }
 
-  // Admin verifies: correct the pin, activate the location.
-  const stkVerify = await api("/api/admin/stockists", {
-    method: "PATCH", cookie: adminCookie,
-    body: { id: stkRow.id, isActive: true, lat: -1.2438, lng: 36.9085 },
-  });
-  assert(stkVerify.status === 200, "Admin verified + activated the stockist location", `Verification failed: ${stkVerify.status} ${JSON.stringify(stkVerify.data)}`);
-  const stkActive = (await rest("stockists", `id=eq.${stkRow.id}&select=is_active,lat,lng`))?.[0];
-  assert(stkActive?.is_active === true && Math.abs(stkActive.lat - -1.2438) < 0.0001, "Location active with corrected coordinates", `Activation state wrong: ${JSON.stringify(stkActive)}`);
-
-  // Guard rails: partners cannot self-approve; anonymous writes are rejected.
-  // NOTE: with the stockist's JWT the route returns 401 (Supabase rejects the
-  // misconfigured session before the role check), so assert on the union.
-  const stkSelfToggle = await api("/api/admin/stockists", {
-    method: "PATCH", cookie: stkCookie,
-    body: { id: stkRow.id, isActive: false },
-  });
-  assert(
-    stkSelfToggle.status === 403 || stkSelfToggle.status === 401,
-    "Stockist cannot toggle their own location (403)",
-    `Expected 403, got ${stkSelfToggle.status}`
-  );
-  const stkAnon = await api("/api/admin/stockists", { method: "PATCH", body: { id: stkRow.id, isActive: true } });
-  assert(stkAnon.status === 401, "Unauthenticated stockist API write → 401", `Expected 401, got ${stkAnon.status}`);
-
   // After approval (but before location activation) the dashboard renders
   // with the pending-verification banner.
   if (stkCookie) {

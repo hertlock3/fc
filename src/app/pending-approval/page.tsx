@@ -11,7 +11,7 @@ import {
 import { getSessionUser, getAccessProfile } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/config";
 import { LogoutButton } from "@/components/logout-button";
-import { Badge, Button, buttonClass, EmptyState } from "@/components/ui";
+import { Badge, buttonClass, EmptyState } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 
 export const metadata = { title: "Pending approval — Farmer's Choice" };
@@ -135,9 +135,11 @@ export default async function PendingApprovalPage() {
           </p>
 
           <div className="mt-6 flex justify-center gap-2">
-            <Button variant="secondary" onClick={() => location.reload()}>
+            {/* Server component — refresh via navigation instead of an onClick,
+                which cannot cross the server/client boundary here. */}
+            <Link href="/pending-approval" className={buttonClass("secondary")}>
               Check again
-            </Button>
+            </Link>
             <LogoutButton />
           </div>
         </div>
