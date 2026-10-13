@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * Every partner account starts PENDING: an admin approves it before the
  * partner can use the platform (they land on /pending-approval). Stockists
  * additionally provide business details; their location is created INACTIVE
- * and activated by Farmer's Choice staff after verification.
+ * and activated by Prime Butchers Cut staff after verification.
  */
 export function PartnerRegisterForm() {
   const router = useRouter();

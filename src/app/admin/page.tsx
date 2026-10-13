@@ -96,7 +96,7 @@ export default async function AdminPage() {
       </div>
 
       <Section
-        title="Awaiting Farmer's Choice approval"
+        title="Awaiting Prime Butchers Cut approval"
         orders={pending}
         empty="Nothing waiting for approval."
         couriers={couriers}

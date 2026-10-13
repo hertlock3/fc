@@ -1,5 +1,5 @@
 # ============================================================================
-# Farmer's Choice Market — CI
+# Prime Butchers Cut Market — CI
 #
 # Job "checks" — lint, typecheck and unit tests. No secrets needed; runs on
 #                every push and pull request.

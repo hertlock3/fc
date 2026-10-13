@@ -1,6 +1,6 @@
-# Farmer's Choice Market 🥩🥬
+# Prime Butchers Cut Market 🥩🥬
 
-A food-commerce app for ordering genuine **Farmer's Choice** meat and groceries
+A food-commerce app for ordering genuine **Farmers Choice** meat and groceries
 with **M-Pesa** checkout and **rider delivery** across Nairobi.
 
 Built with **Next.js (App Router) + TypeScript + Tailwind v4 + Supabase**.
@@ -27,12 +27,12 @@ M-Pesa STK Push (Lipa na M-Pesa) ──► customer enters PIN
    ▼
 Payment confirmed (webhook) ──► order marked PAID
    │      • platform keeps the 3% service fee
-   │      • a Farmer's Choice payout invoice (goods only) is generated
+   │      • a Farmers Choice payout invoice (goods only) is generated
    ▼
 Order routed to the NEAREST stockist (admin can override / re-route)
    │
    ▼
-Farmer's Choice approves the order
+Prime Butchers Cut approves the order
    │
    ▼
 Admin picks a rider ──► dispatch from the chosen stockist
@@ -51,7 +51,7 @@ Every order carries two invoices: a **customer invoice** (what was paid) and a
 Orders are no longer tied to one pickup point. Every order is routed to the
 **stockist nearest the customer's delivery address**:
 
-- The **principal Farmer's Choice butchery plant (Ruiru)** is the fallback —
+- The **principal Prime Butchers Cut butchery plant (Ruiru)** is the fallback —
   with no stockists configured the app behaves exactly as before.
 - The **delivery fee is computed from the chosen stockist**, so customers pay
   for the real distance their food travels.
@@ -109,7 +109,7 @@ the Supabase **SQL Editor** and running it.
 4. [`supabase/migrations/20260923120000_partner_approval.sql`](supabase/migrations/20260923120000_partner_approval.sql) — partner approval gate (`profiles.approval_status`)
 5. [`supabase/migrations/20260924000001_admin_email_otp.sql`](supabase/migrations/20260924000001_admin_email_otp.sql) — emailed one-time codes for admin till changes
 6. [`supabase/migrations/20260924000002_till_only_and_service_fee_3.sql`](supabase/migrations/20260924000002_till_only_and_service_fee_3.sql) — till-only receiving account + historical orders restated to 3%
-6. [`supabase/seed.sql`](supabase/seed.sql) — categories, Farmer's Choice products, pricing settings
+6. [`supabase/seed.sql`](supabase/seed.sql) — categories, Farmers Choice products, pricing settings
 
 The stockists migration seeds the principal Ruiru plant plus two example
 stockists so nearest-location routing works immediately.
@@ -152,6 +152,10 @@ This ensures random rider/stockist accounts can't be self-created.
 ---
 
 ## Going live (real money & delivery)
+
+> 🚀 **Deploying to Vercel?** See [DEPLOYMENT.md](DEPLOYMENT.md) for the full
+> hosted env-var checklist, the sandbox callback round-trip and the step-by-step
+> sim → daraja go-live runbook.
 
 The app ships in **simulation mode** so you can test the whole flow with zero
 third-party credentials. Flip the providers when you're ready:
@@ -241,7 +245,7 @@ Setup — add two variables to `.env.local` (or your Vercel project settings):
 
 - `RESEND_API_KEY` — from the [Resend dashboard → API Keys](https://resend.com/api-keys)
 - `EMAIL_FROM` *(optional)* — sender identity. With a verified domain on Resend,
-  e.g. `"Farmer's Choice <noreply@farmerschoice.co.ke>"`. Without one, the
+  e.g. `"Prime Butchers Cut <noreply@primebutcherscut.co.ke>"`. Without one, the
   default shared test sender `onboarding@resend.dev` works for development, but
   only delivers to your own Resend account address.
 
@@ -312,7 +316,7 @@ scripts/
 supabase/
   config.toml                Supabase CLI project config
   migrations/20260920120000_init.sql   Schema + RLS
-  seed.sql                   Farmer's Choice catalog
+  seed.sql                   Farmers Choice catalog
 vitest.config.ts             Vitest configuration
 src/test/setup.ts            Vitest setup (jest-dom matchers)
 ```

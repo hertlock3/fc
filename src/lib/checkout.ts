@@ -68,7 +68,7 @@ export async function initiateOrderCharge(params: {
       phone,
       tillNumber: merchant.till,
       accountReference: `${merchant.accountPrefix}-${order.order_number}`.slice(0, 12),
-      description: `Farmer's Choice order ${order.order_number}`.slice(0, 40),
+      description: `Prime Butchers Cut order ${order.order_number}`.slice(0, 40),
       callbackUrl: buildCallbackUrl(),
     });
 
@@ -394,7 +394,7 @@ export async function finalizePayment(
     .eq("order_id", orderId)
     .eq("kind", "customer");
 
-  // Farmer's Choice payout invoice (goods only; the platform keeps the fee).
+  // Farmers Choice payout invoice (goods only; the platform keeps the fee).
   await admin.from("invoices").insert({
     order_id: orderId,
     kind: "vendor",
@@ -415,7 +415,7 @@ export async function finalizePayment(
     admin,
     orderId,
     "payment_received",
-    `Payment confirmed${input.receipt ? ` (${input.receipt})` : ""}. Sent to Farmer's Choice for approval.`,
+    `Payment confirmed${input.receipt ? ` (${input.receipt})` : ""}. Sent to Prime Butchers Cut for approval.`,
     actor
   );
 

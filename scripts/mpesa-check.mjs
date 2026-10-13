@@ -155,7 +155,7 @@ try {
       PhoneNumber: testPhone,
       CallBackURL: callbackUrl,
       AccountReference: "FC-CHECK",
-      TransactionDesc: "Farmer's Choice connectivity check",
+      TransactionDesc: "Prime Butchers Cut connectivity check",
     }),
   });
 

@@ -283,7 +283,7 @@ export function UserManager() {
                 <option value="customer">Customer</option>
                 <option value="courier">Rider / courier</option>
                 <option value="stockist">Stockist</option>
-                <option value="vendor">Vendor (Farmer&apos;s Choice)</option>
+                <option value="vendor">Vendor (Supplier)</option>
                 <option value="admin">Admin</option>
               </Select>
             </div>

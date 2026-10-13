@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * End-to-end smoke test for Farmer's Choice Market.
+ * End-to-end smoke test for Prime Butchers Cut Market.
  *
  * Drives the REAL flow over HTTP against a running dev server:
  *   signup → cart → address → quote → checkout (sim M-Pesa STK) →
@@ -438,7 +438,7 @@ try {
   ok(`Admin account ready: ${ADMIN.email}`);
 
   const approve = await api("/api/admin/orders", { method: "POST", cookie: adminCookie, body: { orderId, action: "approve" } });
-  assert(approve.status === 200, "Farmer's Choice approved the order", `Approve failed: ${JSON.stringify(approve.data)}`);
+  assert(approve.status === 200, "Prime Butchers Cut approved the order", `Approve failed: ${JSON.stringify(approve.data)}`);
   assert((await rest("orders", `id=eq.${orderId}&select=status`))?.[0]?.status === "vendor_approved", "Status → vendor_approved", "Status not vendor_approved");
 
   const dispatch = await api("/api/admin/orders", { method: "POST", cookie: adminCookie, body: { orderId, action: "dispatch" } });

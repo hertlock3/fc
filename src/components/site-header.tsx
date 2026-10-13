@@ -44,7 +44,7 @@ export async function SiteHeader() {
             <Sprout className="h-5 w-5" />
           </span>
           <span className="hidden text-[15px] leading-tight sm:block">
-            Farmer&apos;s Choice
+            Prime Butchers Cut
             <span className="block text-[11px] font-normal text-slate-500">
               Fresh market, delivered
             </span>

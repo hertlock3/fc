@@ -214,7 +214,7 @@ export function TeamManager() {
               <option value="courier">Courier</option>
               <option value="stockist">Stockist</option>
               <option value="admin">Admin</option>
-              <option value="vendor">Vendor (Farmer&apos;s Choice)</option>
+              <option value="vendor">Vendor (Supplier)</option>
             </Select>
           </div>
           <div className="flex items-end">

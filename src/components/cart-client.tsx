@@ -36,7 +36,7 @@ export function CartClient({ items }: { items: CartItem[] }) {
     return (
       <EmptyState
         title="Your cart is empty"
-        description="Browse the shop and add some fresh Farmer's Choice favourites."
+        description="Browse the shop and add some fresh Prime Butchers Cut favourites."
         action={
           <Link href="/shop" className={buttonClass("primary", "md")}>
             Go to shop

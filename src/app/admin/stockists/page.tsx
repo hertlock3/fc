@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Admin stockists — manage the fulfilment locations orders are routed to:
- * the principal butchery plant (Ruiru) and every Farmer's Choice stockist.
+ * the principal butchery plant (Ruiru) and every Prime Butchers Cut stockist.
  */
 export default async function AdminStockistsPage() {
   if (!isSupabaseConfigured()) return <NotConfigured />;
@@ -29,7 +29,7 @@ export default async function AdminStockistsPage() {
         Stockists
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Farmer&apos;s Choice fulfilment locations. Checkout routes each order to
+        Prime Butchers Cut fulfilment locations. Checkout routes each order to
         the stockist nearest the customer&apos;s address; the principal plant is
         the fallback.
       </p>

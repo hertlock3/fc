@@ -24,7 +24,7 @@ export default function RegisterPage() {
             <Sprout className="h-6 w-6" />
           </span>
           <h1 className="mt-4 text-2xl font-bold text-slate-900">
-            Join Farmer&apos;s Choice
+            Join Prime Butchers Cut
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Order fresh food — or partner with us to deliver and sell it.

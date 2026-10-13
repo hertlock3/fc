@@ -97,7 +97,7 @@ export default async function StockistDashboardPage() {
 
       {!stockist.is_active && (
         <div className="mt-4 rounded-xl bg-accent-50 p-4 text-sm text-accent-800">
-          Your location is registered but not yet verified by Farmer&apos;s Choice.
+          Your location is registered but not yet verified by Prime Butchers Cut.
           Orders will be routed here once staff activate it in the admin dashboard
           (usually within one business day).
         </div>
@@ -205,7 +205,7 @@ export default async function StockistDashboardPage() {
           </div>
         </dl>
         <p className="mt-3 text-xs text-slate-500">
-          Payouts are settled to your bank/M-Pesa by Farmer&apos;s Choice finance —
+          Payouts are settled to your bank/M-Pesa by Prime Butchers Cut finance —
           the same totals appear on each order&apos;s vendor invoice.
         </p>
       </section>

@@ -109,7 +109,7 @@ function MoneyFlow({ financials }: { financials: Financials }) {
       {/* Totals strip */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Gross paid volume" value={formatMoney(totals.gross)} sub={`${totals.orderCount} paid orders`} />
-        <Stat label="Farmer's Choice (goods)" value={formatMoney(totals.vendorPayout)} sub="vendor payouts" />
+        <Stat label="Farmers Choice (goods)" value={formatMoney(totals.vendorPayout)} sub="vendor payouts" />
         <Stat label="Courier rider account" value={formatMoney(totals.delivery)} sub="delivery fees collected" />
         <Stat label="Platform service charge" value={formatMoney(totals.platformFee)} sub="platform revenue" />
       </div>

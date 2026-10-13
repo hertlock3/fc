@@ -8,7 +8,7 @@ import { config } from "@/lib/config";
  * the key to the browser. It bypasses Row Level Security and is used for:
  *   - writing order/payment/invoice rows during checkout
  *   - processing M-Pesa callbacks
- *   - admin (Farmer's Choice) approvals and delivery dispatch
+ *   - admin (Prime Butchers Cut) approvals and delivery dispatch
  *
  * Every use MUST be guarded by an explicit authorisation check first.
  */

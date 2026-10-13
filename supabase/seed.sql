@@ -1,5 +1,5 @@
 -- ============================================================================
--- Farmer's Choice Market — seed data
+-- Prime Butchers Cut Market — seed data
 -- Idempotent: safe to run more than once.
 -- ============================================================================
 

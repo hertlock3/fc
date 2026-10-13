@@ -23,7 +23,7 @@ const STEPS = [
   {
     icon: ShoppingBasket,
     title: "1. Register & shop",
-    body: "Create your account and browse fresh Farmer's Choice cuts, sausages and deli treats.",
+    body: "Create your account and browse fresh Prime Butchers Cut cuts, sausages and deli treats.",
   },
   {
     icon: MapPin,
@@ -38,7 +38,7 @@ const STEPS = [
   {
     icon: BikeIcon,
     title: "4. Rider on the way",
-    body: "Once Farmer's Choice approves, a rider is dispatched and you can track the order live.",
+    body: "Once Prime Butchers Cut approves, a rider is dispatched and you can track the order live.",
   },
 ];
 
@@ -129,7 +129,7 @@ export default async function HomePage() {
                 </div>
               </dl>
               <div className="mt-5 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-                Farmer&apos;s Choice receives <strong>KES 1,340.00</strong>; the{" "}
+                Prime Butchers Cut receives <strong>KES 1,340.00</strong>; the{" "}
                 {config.serviceFee.percent}% service fee keeps the platform running.
               </div>
             </div>
@@ -168,7 +168,7 @@ export default async function HomePage() {
               <h2 className="text-2xl font-bold tracking-tight text-slate-900">
                 Popular this week
               </h2>
-              <p className="mt-1 text-slate-600">Fresh picks from the Farmer&apos;s Choice counter.</p>
+              <p className="mt-1 text-slate-600">Fresh picks from the Prime Butchers Cut counter.</p>
             </div>
             <Link href="/shop" className={buttonClass("secondary", "sm", "hidden sm:inline-flex")}>
               View all <ArrowRight className="h-4 w-4" />
@@ -193,7 +193,7 @@ export default async function HomePage() {
           <Trust
             icon={BikeIcon}
             title="Reliable delivery"
-            body="Courier dispatch with live status updates, from Farmer's Choice approval right through to your door."
+            body="Courier dispatch with live status updates, from Prime Butchers Cut approval right through to your door."
           />
           <Trust
             icon={CreditCard}

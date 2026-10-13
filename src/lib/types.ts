@@ -1,4 +1,4 @@
-/** Shared domain types for the Farmer's Choice Market app. */
+/** Shared domain types for the Prime Butchers Cut Market app. */
 
 export type UserRole = "customer" | "admin" | "vendor" | "courier" | "stockist";
 
@@ -56,7 +56,7 @@ export interface Stockist {
   opening_hours: string | null;
   notes: string | null;
   is_active: boolean;
-  /** The principal Farmer's Choice butchery plant (Ruiru) — always available. */
+  /** The principal Prime Butchers Cut butchery plant (Ruiru) — always available. */
   is_principal: boolean;
   /** Partner login (profiles.id) that manages this location, if registered. */
   profile_id: string | null;
@@ -151,7 +151,7 @@ export interface Order {
   delivery_fee_cents: number;
   service_fee_cents: number;
   total_cents: number;
-  /** What Farmer's Choice receives after the platform fee is deducted. */
+  /** What the vendor receives after the platform fee is deducted. */
   vendor_payout_cents: number;
   /** Platform revenue (service fee). */
   platform_fee_cents: number;

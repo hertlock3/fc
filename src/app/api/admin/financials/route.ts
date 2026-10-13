@@ -6,7 +6,7 @@ import { formatMoney } from "@/lib/money";
  * Admin financials API — aggregated money flows across ALL orders.
  *
  * Money destination breakdown (per platform's split):
- *   - goods      → Farmer's Choice payout (vendor_payout_cents)
+ *   - goods      → vendor payout — Farmers Choice goods (vendor_payout_cents)
  *   - delivery   → courier rider account (delivery_fee_cents)
  *   - service    → platform service charge (service_fee_cents)
  *
@@ -55,7 +55,7 @@ export async function GET() {
 
   // Where the money goes (shares of gross paid volume).
   const breakdown = [
-    { key: "goods", label: "Farmer's Choice (goods)", cents: totals.vendorPayout },
+    { key: "goods", label: "Farmers Choice (goods)", cents: totals.vendorPayout },
     { key: "delivery", label: "Courier rider account", cents: totals.delivery },
     { key: "service", label: "Platform service charge", cents: totals.platformFee },
   ];

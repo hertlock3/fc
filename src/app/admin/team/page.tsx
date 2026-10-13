@@ -16,7 +16,7 @@ export default async function AdminTeamPage() {
     <div className="container-page py-10">
       <h1 className="text-2xl font-bold tracking-tight text-slate-900">Team</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Courier and Farmer&apos;s Choice staff accounts. Promote an existing customer
+        Courier and Prime Butchers Cut staff accounts. Promote an existing customer
         account by email — couriers get the trips portal at /courier.
       </p>
       <div className="mt-5">

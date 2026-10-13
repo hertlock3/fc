@@ -35,11 +35,11 @@ export default async function PartnerRegisterPage({
             {type === "stockist" ? <Store className="h-6 w-6" /> : <Bike className="h-6 w-6" />}
           </span>
           <h1 className="mt-4 text-2xl font-bold text-slate-900">
-            Partner with Farmer&apos;s Choice
+            Partner with Prime Butchers Cut
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             {type === "stockist"
-              ? "Sell Farmer's Choice products from your shop. We verify your location before you go live."
+              ? "Sell Farmers Choice products from your shop. We verify your location before you go live."
               : "Deliver orders across Nairobi and earn per trip."}
           </p>
         </div>
@@ -50,7 +50,7 @@ export default async function PartnerRegisterPage({
         </div>
         <p className="mt-4 flex items-center justify-center gap-2 text-center text-xs text-slate-400">
           <Sprout className="h-3.5 w-3.5" />
-          Stockist locations are reviewed by Farmer&apos;s Choice before activation.
+          Stockist locations are reviewed by Prime Butchers Cut before activation.
         </p>
       </div>
     </div>

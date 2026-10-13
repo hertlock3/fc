@@ -123,7 +123,7 @@ export function PayPanel({
           </p>
           {!failed && (
             <p className="mt-0.5 text-sm opacity-90">
-              Your order is now with Farmer&apos;s Choice for approval.
+              Your order is now with Prime Butchers Cut for approval.
             </p>
           )}
         </div>

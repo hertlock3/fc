@@ -144,7 +144,7 @@ export default async function OrderDetailPage({
 
             {order.status === "awaiting_vendor_approval" && (
               <p className="mt-4 text-sm text-slate-500">
-                Waiting for Farmer&apos;s Choice to approve and pack your order. A rider
+                Waiting for Prime Butchers Cut to approve and pack your order. A rider
                 is dispatched right after.
               </p>
             )}
@@ -247,7 +247,7 @@ export default async function OrderDetailPage({
             </div>
 
             <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-              Farmer&apos;s Choice payout after the {config.serviceFee.percent}% service
+              Farmers Choice (goods) payout after the {config.serviceFee.percent}% service
               fee: <strong>{formatMoney(order.vendor_payout_cents)}</strong>
             </div>
 

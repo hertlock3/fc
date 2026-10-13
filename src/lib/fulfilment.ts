@@ -12,7 +12,7 @@ import { getRoadDistanceKm } from "@/lib/pricing";
 import type { AddressSnapshot, DeliveryStatus, Order } from "@/lib/types";
 
 /**
- * Farmer's Choice approves an order, releasing it for dispatch.
+ * Prime Butchers Cut approves an order, releasing it for dispatch.
  * awaiting_vendor_approval → vendor_approved
  *
  * `stockistId` lets staff override the auto-nearest fulfilment location
@@ -57,7 +57,7 @@ export async function approveOrder(
     admin,
     orderId,
     "vendor_approved",
-    "Farmer's Choice approved the order. Preparing items for pickup.",
+    "Prime Butchers Cut approved the order. Preparing items for pickup.",
     actor
   );
 }
@@ -203,7 +203,7 @@ export async function dispatchOrder(
     orderNumber: order.order_number,
     pickup,
     dropoff,
-    manifest: `Farmer's Choice groceries · ${stockist.name}`,
+    manifest: `Prime Butchers Cut groceries · ${stockist.name}`,
     feeCents: order.delivery_fee_cents,
   });
 
@@ -340,7 +340,7 @@ export async function courierUpdateDeliveryStatus(
     admin,
     orderId,
     next,
-    next === "picked_up" ? "Rider picked up the order from Farmer's Choice." : "Rider is on the way.",
+    next === "picked_up" ? "Rider picked up the order from Prime Butchers Cut." : "Rider is on the way.",
     "courier"
   );
 }

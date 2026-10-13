@@ -26,8 +26,8 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   pending_payment: "Awaiting payment",
   paid: "Payment received",
-  awaiting_vendor_approval: "Awaiting Farmer's Choice approval",
-  vendor_approved: "Approved by Farmer's Choice",
+  awaiting_vendor_approval: "Awaiting Prime Butchers Cut approval",
+  vendor_approved: "Approved by Prime Butchers Cut",
   dispatching: "Finding a rider",
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",

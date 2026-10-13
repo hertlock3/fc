@@ -201,7 +201,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           </>
         ) : (
           <>
-            New to Farmer&apos;s Choice?{" "}
+            New to Prime Butchers Cut?{" "}
             <Link href="/register" className="font-medium text-brand-700 hover:underline">
               Create an account
             </Link>

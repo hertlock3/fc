@@ -35,7 +35,7 @@ export default async function ShopPage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Farmer&apos;s Choice shop
+            Prime Butchers Cut shop
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             {products.length} product{products.length === 1 ? "" : "s"} available for

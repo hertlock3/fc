@@ -14,7 +14,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { Badge, buttonClass, EmptyState } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 
-export const metadata = { title: "Pending approval — Farmer's Choice" };
+export const metadata = { title: "Pending approval — Prime Butchers Cut" };
 export const dynamic = "force-dynamic";
 
 /**
@@ -95,7 +95,7 @@ export default async function PendingApprovalPage() {
 
           <p className="mt-3 text-sm leading-6 text-slate-600">
             Hi {name} — your {isStockist ? "stockist" : isRider ? "rider" : "partner"}{" "}
-            registration was received, but a Farmer&apos;s Choice administrator has not
+            registration was received, but a Prime Butchers Cut administrator has not
             approved it yet. Platform access stays locked until then, so nobody can
             create random rider or stockist accounts.
           </p>
@@ -114,7 +114,7 @@ export default async function PendingApprovalPage() {
           <div className="mt-6 space-y-2 rounded-xl bg-slate-50 p-4 text-left text-sm text-slate-600">
             <p className="flex items-start gap-2">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
-              An admin reviews every rider &amp; stockist sign-up in the Farmer&apos;s
+              An admin reviews every rider &amp; stockist sign-up in the Prime Butchers
               Choice dashboard — usually within one business day.
             </p>
             <p className="flex items-start gap-2">
