@@ -144,7 +144,7 @@ export default async function OrderDetailPage({
 
             {order.status === "awaiting_vendor_approval" && (
               <p className="mt-4 text-sm text-slate-500">
-                Waiting for Prime Butchers Cut to approve and pack your order. A rider
+                Waiting for Prime Butchers Hub to approve and pack your order. A rider
                 is dispatched right after.
               </p>
             )}

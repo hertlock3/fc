@@ -228,7 +228,7 @@ export function CheckoutClient({
           {stockist && (
             <p className="mt-2 rounded-xl bg-brand-50 px-3 py-2 text-xs text-brand-800">
               <Store className="mr-1 inline h-3.5 w-3.5" />
-              Fulfilled from your nearest Prime Butchers Cut stockist:{" "}
+              Fulfilled from your nearest Prime Butchers Hub stockist:{" "}
               <strong>{stockist.name}</strong>
             </p>
           )}

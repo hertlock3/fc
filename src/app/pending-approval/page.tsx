@@ -14,7 +14,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { Badge, buttonClass, EmptyState } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 
-export const metadata = { title: "Pending approval — Prime Butchers Cut" };
+export const metadata = { title: "Pending approval — Prime Butchers Hub" };
 export const dynamic = "force-dynamic";
 
 /**
@@ -95,7 +95,7 @@ export default async function PendingApprovalPage() {
 
           <p className="mt-3 text-sm leading-6 text-slate-600">
             Hi {name} — your {isStockist ? "stockist" : isRider ? "rider" : "partner"}{" "}
-            registration was received, but a Prime Butchers Cut administrator has not
+            registration was received, but a Prime Butchers Hub administrator has not
             approved it yet. Platform access stays locked until then, so nobody can
             create random rider or stockist accounts.
           </p>

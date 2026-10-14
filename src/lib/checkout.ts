@@ -68,7 +68,7 @@ export async function initiateOrderCharge(params: {
       phone,
       tillNumber: merchant.till,
       accountReference: `${merchant.accountPrefix}-${order.order_number}`.slice(0, 12),
-      description: `Prime Butchers Cut order ${order.order_number}`.slice(0, 40),
+      description: `Prime Butchers Hub order ${order.order_number}`.slice(0, 40),
       callbackUrl: buildCallbackUrl(),
     });
 
@@ -415,7 +415,7 @@ export async function finalizePayment(
     admin,
     orderId,
     "payment_received",
-    `Payment confirmed${input.receipt ? ` (${input.receipt})` : ""}. Sent to Prime Butchers Cut for approval.`,
+    `Payment confirmed${input.receipt ? ` (${input.receipt})` : ""}. Sent to Prime Butchers Hub for approval.`,
     actor
   );
 

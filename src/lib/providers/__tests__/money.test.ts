@@ -10,7 +10,7 @@ const request = {
   phone: "254712345678",
   tillNumber: "1741769",
   accountReference: "FCM-FC-20260920-ABCD",
-  description: "Prime Butchers Cut order",
+  description: "Prime Butchers Hub order",
   callbackUrl: "http://localhost:3000/api/payments/mpesa/callback",
 };
 

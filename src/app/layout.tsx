@@ -12,12 +12,12 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Prime Butchers Cut Market — Fresh food, delivered",
-    template: "%s · Prime Butchers Cut Market",
+    default: "Prime Butchers Hub — Fresh food, delivered",
+    template: "%s · Prime Butchers Hub",
   },
   description:
-    "Order fresh Prime Butchers Cut meat and groceries online. Secure M-Pesa checkout, distance-based delivery and same-day rider dispatch across Nairobi.",
-  applicationName: "Prime Butchers Cut Market",
+    "Order fresh Prime Butchers Hub meat and groceries online. Secure M-Pesa checkout, distance-based delivery and same-day rider dispatch across Nairobi.",
+  applicationName: "Prime Butchers Hub",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

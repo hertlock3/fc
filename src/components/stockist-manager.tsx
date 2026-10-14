@@ -54,7 +54,7 @@ function toForm(s: StockistWithDistance): StockistForm {
   };
 }
 
-/** Admin manager for Prime Butchers Cut fulfilment locations (plant + stockists). */
+/** Admin manager for Prime Butchers Hub fulfilment locations (plant + stockists). */
 export function StockistManager({
   stockists: initial,
   storeOrigin,
@@ -331,7 +331,7 @@ function StockistDialog({
             <Input
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
-              placeholder="Prime Butchers Cut Stockist — Kasarani"
+              placeholder="Prime Butchers Hub Stockist — Kasarani"
             />
           </div>
           <div className="sm:col-span-2">

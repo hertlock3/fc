@@ -1,5 +1,5 @@
 # ============================================================================
-# Prime Butchers Cut Market — CI
+# Prime Butchers Hub — CI
 #
 # Job "checks" — lint, typecheck and unit tests. No secrets needed; runs on
 #                every push and pull request.

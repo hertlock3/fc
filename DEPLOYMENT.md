@@ -1,6 +1,6 @@
 # Deployment & go-live guide (Vercel + Safaricom Daraja)
 
-Everything needed to take Prime Butchers Cut Market from simulation to a hosted,
+Everything needed to take Prime Butchers Hub from simulation to a hosted,
 M-Pesa-paying deployment. Grounded in the code as shipped — every variable
 below is read by [`src/lib/config.ts`](src/lib/config.ts).
 
@@ -38,8 +38,8 @@ requests whose token doesn't match (401).
 | `TILL_NUMBER` | your Buy Goods till | Production STK receiver in the Buy Goods flow; also editable at runtime in Admin → Finance |
 | `MERCHANT_ACCOUNT_PREFIX` | `FCM` | Account-reference prefix on pushes |
 | `RESEND_API_KEY` | `re_…` | Admin one-time codes for till changes |
-| `EMAIL_FROM` | `"Prime Butchers Cut <noreply@your-domain>"` | Needs a verified Resend domain; the shared `onboarding@resend.dev` default only reaches your own inbox |
-| `GEOCODE_USER_AGENT` | `Prime Butchers Cut Market (https://your-domain; contact@you)` | Nominatim usage policy requires an identifying User-Agent |
+| `EMAIL_FROM` | `"Prime Butchers Hub <noreply@your-domain>"` | Needs a verified Resend domain; the shared `onboarding@resend.dev` default only reaches your own inbox |
+| `GEOCODE_USER_AGENT` | `Prime Butchers Hub (https://your-domain; contact@you)` | Nominatim usage policy requires an identifying User-Agent |
 | `DELIVERY_PROVIDER` | `manual` | Staff assign real riders from `/admin` — works today, no courier API needed |
 
 ### Optional / tuning

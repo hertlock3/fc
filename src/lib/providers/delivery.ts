@@ -254,7 +254,7 @@ export class UberDirectDeliveryProvider implements DeliveryProvider {
         method: "POST",
         body: JSON.stringify({
           quote_id: quote.id,
-          manifest_items: [{ name: req.manifest ?? "Prime Butchers Cut order", quantity: 1 }],
+          manifest_items: [{ name: req.manifest ?? "Prime Butchers Hub order", quantity: 1 }],
           pickup_name: req.pickup.name,
           pickup_address: formatAddress(req.pickup),
           pickup_phone_number: req.pickup.phone,

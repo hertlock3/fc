@@ -23,7 +23,7 @@ export function defaultMerchantSettings(): MerchantSettings {
   return {
     till: config.till.number,
     accountPrefix: "FCM",
-    name: "Prime Butchers Cut Market Ltd",
+    name: "Prime Butchers Hub Ltd",
   };
 }
 

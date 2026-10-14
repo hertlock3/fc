@@ -1,4 +1,4 @@
-/** Shared domain types for the Prime Butchers Cut Market app. */
+/** Shared domain types for the Prime Butchers Hub app. */
 
 export type UserRole = "customer" | "admin" | "vendor" | "courier" | "stockist";
 
@@ -56,7 +56,7 @@ export interface Stockist {
   opening_hours: string | null;
   notes: string | null;
   is_active: boolean;
-  /** The principal Prime Butchers Cut butchery plant (Ruiru) — always available. */
+  /** The principal Prime Butchers Hub butchery plant (Ruiru) — always available. */
   is_principal: boolean;
   /** Partner login (profiles.id) that manages this location, if registered. */
   profile_id: string | null;

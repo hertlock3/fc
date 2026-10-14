@@ -10,7 +10,7 @@ export function SiteFooter() {
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">
               <Sprout className="h-4 w-4" />
             </span>
-            Prime Butchers Cut Market
+            Prime Butchers Hub
           </div>
           <p className="mt-3 max-w-sm text-sm text-slate-500">
             Fresh Farmers Choice meat and groceries, delivered to your door
@@ -70,7 +70,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-slate-100 py-5">
         <p className="container-page text-xs text-slate-400">
-          © {new Date().getFullYear()} Prime Butchers Cut Market. Prices in Kenyan
+          © {new Date().getFullYear()} Prime Butchers Hub. Prices in Kenyan
           Shillings. A 3% service fee applies to goods and delivery.
         </p>
       </div>

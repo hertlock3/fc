@@ -1,4 +1,4 @@
-# Prime Butchers Cut Market 🥩🥬
+# Prime Butchers Hub 🥩🥬
 
 A food-commerce app for ordering genuine **Farmers Choice** meat and groceries
 with **M-Pesa** checkout and **rider delivery** across Nairobi.
@@ -32,7 +32,7 @@ Payment confirmed (webhook) ──► order marked PAID
 Order routed to the NEAREST stockist (admin can override / re-route)
    │
    ▼
-Prime Butchers Cut approves the order
+Prime Butchers Hub approves the order
    │
    ▼
 Admin picks a rider ──► dispatch from the chosen stockist
@@ -51,7 +51,7 @@ Every order carries two invoices: a **customer invoice** (what was paid) and a
 Orders are no longer tied to one pickup point. Every order is routed to the
 **stockist nearest the customer's delivery address**:
 
-- The **principal Prime Butchers Cut butchery plant (Ruiru)** is the fallback —
+- The **principal Prime Butchers Hub butchery plant (Ruiru)** is the fallback —
   with no stockists configured the app behaves exactly as before.
 - The **delivery fee is computed from the chosen stockist**, so customers pay
   for the real distance their food travels.
@@ -245,7 +245,7 @@ Setup — add two variables to `.env.local` (or your Vercel project settings):
 
 - `RESEND_API_KEY` — from the [Resend dashboard → API Keys](https://resend.com/api-keys)
 - `EMAIL_FROM` *(optional)* — sender identity. With a verified domain on Resend,
-  e.g. `"Prime Butchers Cut <noreply@primebutcherscut.co.ke>"`. Without one, the
+  e.g. `"Prime Butchers Hub <noreply@primebutcherscut.co.ke>"`. Without one, the
   default shared test sender `onboarding@resend.dev` works for development, but
   only delivers to your own Resend account address.
 

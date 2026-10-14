@@ -162,7 +162,7 @@ export default async function CourierPage() {
       </div>
 
       <p className="mt-3 text-xs text-slate-400">
-        Earnings = delivery fee per trip. Payouts are settled by Prime Butchers Cut
+        Earnings = delivery fee per trip. Payouts are settled by Prime Butchers Hub
         finance to your registered number.
       </p>
 
@@ -226,7 +226,7 @@ function TripsSection({
                       </p>
                       <p className="mt-2 flex items-center gap-1.5 text-sm text-slate-600">
                         <Store className="h-3.5 w-3.5 text-brand-600" /> Pickup:{" "}
-                        {trip.order?.stockist?.name ?? "Prime Butchers Cut"}
+                        {trip.order?.stockist?.name ?? "Prime Butchers Hub"}
                         {trip.order?.stockist?.address
                           ? ` — ${trip.order.stockist.address}`
                           : ""}

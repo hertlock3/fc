@@ -47,7 +47,7 @@ const mpesaEnvironment = (env("MPESA_ENV") ?? "sandbox") as
   | "production";
 
 export const config = {
-  appName: "Prime Butchers Cut Market",
+  appName: "Prime Butchers Hub",
   /** Public base URL used to build callback URLs handed to M-Pesa/Uber. */
   appUrl: env("APP_URL") ?? "http://localhost:3000",
 
@@ -76,11 +76,11 @@ export const config = {
     peakMultiplier: num("DELIVERY_PEAK_MULTIPLIER", 1.15),
   },
 
-  /** Prime Butchers Cut pickup origin (Kahawa West, Nairobi). */
+  /** Prime Butchers Hub pickup origin (Kahawa West, Nairobi). */
   store: {
-    name: env("STORE_NAME") ?? "Prime Butchers Cut — Kahawa West",
+    name: env("STORE_NAME") ?? "Prime Butchers Hub — Kahawa West",
     address:
-      env("STORE_ADDRESS") ?? "Prime Butchers Cut Depot, Kamiti Road, Kahawa West, Nairobi",
+      env("STORE_ADDRESS") ?? "Prime Butchers Hub Depot, Kamiti Road, Kahawa West, Nairobi",
     lat: num("STORE_LAT", -1.2250),
     lng: num("STORE_LNG", 36.9060),
     phone: env("STORE_PHONE") ?? "+254700000000",
@@ -147,7 +147,7 @@ export const config = {
    */
   email: {
     apiKey: env("RESEND_API_KEY"),
-    from: env("EMAIL_FROM") ?? "Prime Butchers Cut Market <onboarding@resend.dev>",
+    from: env("EMAIL_FROM") ?? "Prime Butchers Hub <onboarding@resend.dev>",
   },
 
   /**
@@ -158,7 +158,7 @@ export const config = {
   geocode: {
     userAgent:
       env("GEOCODE_USER_AGENT") ??
-      "Prime Butchers Cut Market (https://example.com; contact@example.com)",
+      "Prime Butchers Hub (https://example.com; contact@example.com)",
   },
 } as const;
 

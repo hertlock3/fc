@@ -11,7 +11,7 @@ import { Resend } from "resend";
  *
  * Sender identity:
  *   * With a verified domain on Resend, set `EMAIL_FROM`
- *     (e.g. "Prime Butchers Cut <noreply@primebutcherscut.co.ke>").
+ *     (e.g. "Prime Butchers Hub <noreply@primebutcherscut.co.ke>").
  *   * Without one, Resend allows sending from their shared test sender
  *     `onboarding@resend.dev` — fine for development, but only delivers to
  *     the account owner's own address.
@@ -47,7 +47,7 @@ export async function sendOtpEmail(params: {
     const { error } = await resend.emails.send({
       from: config.email.from,
       to: params.to,
-      subject: `${params.code} is your Prime Butchers Cut verification code`,
+      subject: `${params.code} is your Prime Butchers Hub verification code`,
       text: [
         `Your verification code for ${params.purpose} is:`,
         "",
@@ -56,11 +56,11 @@ export async function sendOtpEmail(params: {
         `It expires in ${params.expiresInMinutes} minutes and can be used once.`,
         "If you did not request this, you can safely ignore this email.",
         "",
-        "— Prime Butchers Cut Market",
+        "— Prime Butchers Hub",
       ].join("\n"),
       html: [
         '<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px;">',
-        '  <h2 style="margin:0 0 8px;color:#166534;">Prime Butchers Cut Market</h2>',
+        '  <h2 style="margin:0 0 8px;color:#166534;">Prime Butchers Hub</h2>',
         `  <p style="color:#334155;margin:0 0 16px;">Your verification code for <strong>${params.purpose}</strong>:</p>`,
         `  <p style="font-size:32px;font-weight:700;letter-spacing:8px;color:#0f172a;margin:0 0 16px;">${params.code}</p>`,
         `  <p style="color:#64748b;font-size:13px;margin:0;">It expires in ${params.expiresInMinutes} minutes and can be used once.`,

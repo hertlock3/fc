@@ -3,7 +3,7 @@ import { haversineKm, type LatLng } from "@/lib/pricing";
 import type { Stockist, StockistWithDistance } from "@/lib/types";
 
 /**
- * Stockists — Prime Butchers Cut fulfilment locations.
+ * Stockists — Prime Butchers Hub fulfilment locations.
  *
  * Orders are fulfilled from the **principal butchery plant (Ruiru)** or from
  * approved **stockists**. At checkout the platform silently picks the *nearest
