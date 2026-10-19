@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Archive,
   ArchiveRestore,
+  ImagePlus,
   Pencil,
   Plus,
   Tag,
@@ -253,10 +254,22 @@ export function CatalogManager({
               {visible.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50/60">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-slate-900">{p.name}</p>
-                    <p className="text-xs text-slate-400">
-                      {p.sku ?? "no SKU"} · {p.unit}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
+                        {p.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <ImagePlus className="h-4 w-4 text-slate-300" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-900">{p.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {p.sku ?? "no SKU"} · {p.unit}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {categories.find((c) => c.id === p.category_id)?.name ?? "—"}
@@ -389,31 +402,98 @@ function ProductDialog({
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(initial.imageUrl || null);
+  const [imageRemoved, setImageRemoved] = useState(false);
 
   const set = <K extends keyof ProductForm>(key: K, value: ProductForm[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
+  function chooseImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return;
+    setImageFile(file);
+    setImageRemoved(false);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function removeChosenImage() {
+    setImageFile(null);
+    setImageRemoved(true);
+    setImagePreview(null);
+  }
+
+  /** Upload a picked file — returns the updated product row, or null on error. */
+  async function uploadImage(productId: string): Promise<Product | null> {
+    if (!imageFile) return null;
+    const fd = new FormData();
+    fd.append("file", imageFile);
+    const res = await fetch(`/api/admin/products/${productId}/image`, {
+      method: "POST",
+      body: fd,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      setError((data as { error?: string })?.error ?? "Image upload failed.");
+      return null;
+    }
+    return (data as { product: Product }).product;
+  }
+
   async function save() {
     setBusy(true);
     setError(null);
-    const payload = {
+    // Image handling lives in its own route; the JSON PATCH never sends
+    // imageUrl unless the admin explicitly removed the image.
+    const fields = {
       name: form.name,
       categoryId: form.categoryId || null,
       description: form.description,
       price: Number(form.price),
       unit: form.unit || "each",
       sku: form.sku,
-      imageUrl: form.imageUrl,
       inStock: form.inStock,
       stockQty: Number(form.stockQty || 0),
       isActive: form.isActive,
+      ...(imageRemoved ? { imageUrl: "" } : {}),
     };
-    const data = await mutate("/api/admin/products", product
-      ? { method: "PATCH", body: { id: product.id, ...payload } }
-      : { method: "POST", body: payload });
-    if (data) onSaved(data.product);
-    else setError("Save failed — check the values.");
-    setBusy(false);
+    try {
+      if (product) {
+        if (imageRemoved) {
+          const data = await mutate(`/api/admin/products/${product.id}/image`, {
+            method: "DELETE",
+          });
+          if (!data) return;
+        }
+        if (imageFile) {
+          // Each later call returns a fresh product row, so success is all we
+          // need here; the final PATCH result is the authoritative snapshot.
+          const uploaded = await uploadImage(product.id);
+          if (!uploaded) return;
+        }
+        const data = await mutate("/api/admin/products", {
+          method: "PATCH",
+          body: { id: product.id, ...fields },
+        });
+        if (data) onSaved(data.product);
+      } else {
+        // New product: create it first — the upload route needs a real id.
+        const created = await mutate("/api/admin/products", {
+          method: "POST",
+          body: fields,
+        });
+        if (!created) return;
+        let saved = created.product as Product;
+        if (imageFile) {
+          const uploaded = await uploadImage(saved.id);
+          if (!uploaded) return;
+          saved = uploaded;
+        }
+        onSaved(saved);
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -495,13 +575,45 @@ function ProductDialog({
           />
         </div>
         <div className="sm:col-span-2">
-          <Label>Image URL (optional)</Label>
-          <Input
-            type="url"
-            value={form.imageUrl}
-            onChange={(e) => set("imageUrl", e.target.value)}
-            placeholder="https://…"
-          />
+          <Label>Product photo</Label>
+          <div className="flex items-start gap-4">
+            <div className="grid h-28 w-28 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+              {imagePreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imagePreview} alt="Product preview" className="h-full w-full object-cover" />
+              ) : (
+                <ImagePlus className="h-7 w-7 text-slate-300" />
+              )}
+            </div>
+            <div className="space-y-2">
+              <div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50">
+                  <ImagePlus className="h-4 w-4" />
+                  {imageFile ? "Replace image" : "Choose image"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
+                    className="hidden"
+                    onChange={chooseImage}
+                    disabled={busy}
+                  />
+                </label>
+                <p className="mt-1 text-xs text-slate-400">
+                  JPG, PNG, WebP or AVIF · up to 5 MB
+                </p>
+              </div>
+              {imagePreview && (
+                <button
+                  type="button"
+                  onClick={removeChosenImage}
+                  className="text-xs font-medium text-red-600 hover:underline"
+                  disabled={busy}
+                >
+                  Remove image
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-2">

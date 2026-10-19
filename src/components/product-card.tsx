@@ -15,7 +15,17 @@ export function ProductCard({
   return (
     <article className="card group flex flex-col overflow-hidden p-3 transition hover:-translate-y-1 hover:shadow-lg">
       <div className="relative mb-3 grid aspect-[4/3] place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-brand-50 to-accent-50">
-        <Package className="h-9 w-9 text-brand-500/70" />
+        {product.image_url ? (
+          // Storage URLs are first-party; plain <img> avoids next/image config.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+          />
+        ) : (
+          <Package className="h-9 w-9 text-brand-500/70" />
+        )}
         {!product.in_stock && (
           <span className="absolute inset-0 grid place-items-center bg-white/70 text-xs font-semibold uppercase tracking-wide text-slate-600">
             Out of stock
